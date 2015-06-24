@@ -1,0 +1,19 @@
+*.udb
+*.ai
+*.amplxe
+/Delaunay/My Amplifier XE Results - DelaunayDemo/*.amplxeproj
+config
+/Delaunay/My Amplifier XE Results - DelaunayDemo/r000hs/data.0/26712-28568.0-28292.0.cs
+/Delaunay/_UpgradeReport_Files/UpgradeReport_Minus.gif
+/Delaunay/_UpgradeReport_Files/UpgradeReport_Plus.gif
+*.psd
+*.th
+/Resources/buildings
+*.htm
+*.res
+/Triangle/A.poly
+/Delaunay/My Amplifier XE Results - DelaunayDemo/r000hs/data.0/systemcollector-MICROSOF-D00F29.sc
+/Delaunay/My Amplifier XE Results - DelaunayDemo/r000hs/data.0/26712-28568.0.trace
+/Delaunay/UpgradeLog.XML
+/Delaunay/_UpgradeReport_Files/UpgradeReport.xslt
+/Delaunay/My Amplifier XE Results - DelaunayDemo/r000hs

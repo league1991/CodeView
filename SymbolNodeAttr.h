@@ -33,9 +33,10 @@ namespace CodeAtlas
 	// ChildInfoAttr	SymbolTreeBuilder
 	// ProjectAttr		FuzzyDependBuilder
 	// SymbolWordAttr	WordCollector
-	// FuzzyDependAttr  FuzzyDependBuilder
+	// FuzzyDependAttr  GeneralDependBuilder
 	// UIElementAttr	UIElementLocator
-	// GlobalSymAttr    FuzzyDependBuilder
+	// GlobalSymAttr    GeneralDependBuilder
+	// DependRawData    GeneralDependBuilder
 	class SymbolNodeAttr
 	{
 	public:
@@ -50,6 +51,7 @@ namespace CodeAtlas
 			ATTR_FUZZYDEPEND= (0x1) << 5,
 			ATTR_UIELEMENT  = (0x1) << 6,
 			ATTR_GLOBAL_SYM = (0x1) << 7,
+			ATTR_DEPEND_RAW = (0x1) << 8,
 
 			ATTR_NONE		= 0,
 			ATTR_ALL		= 0xffffffff
@@ -227,6 +229,8 @@ namespace CodeAtlas
 	{
 	public:
 		typedef QSharedPointer<SymbolWordAttr> Ptr;
+		typedef QMap<int,float> WordMap;
+
 		SymbolWordAttr():SymbolNodeAttr(SymbolNodeAttr::ATTR_SYMWORD), m_totalWeight(0.f){}
 		inline static AttrType  classType(){return SymbolNodeAttr::ATTR_SYMWORD;}
 
@@ -235,6 +239,7 @@ namespace CodeAtlas
 		void					mergeWords( const SymbolData& item );
 		void					mergeWords( const SymbolWordAttr& item);
 		void					mergeWords( const QString& src);
+		static void				mergeWords( WordMap& dst, const WordMap& src);
 
 
 		void					computeStatistics();
@@ -244,20 +249,24 @@ namespace CodeAtlas
 
 		QString					toString()const;
 
+
 		inline const QMap<int,float>&  getWordWeightMap()const{return m_wordWeightMap;}
 		inline float			getTotalWordWeight(){return m_totalWeight;}
 		int						nWords()const{return m_wordWeightMap.size();}
 
 		// name word
 		inline const QMap<int,float>&  getNameWordWeightMap()const{return m_nameWordWeightMap;}
+		void					mergeNameWordWeightMap(const WordMap& other);
 
 		// static functions
 		static void				clearGlobalWordMap();
 		// get the index from the global word pool, if not exist, and one and return the new idx
 		static int				addOrGetWord(const QString& word);
 		static SymbolData		getSymbolData( const QSharedPointer<SymbolNode>& node);
-		static inline const QString&	getWord(int idx) {	return m_wordList[idx];	}
-		static inline int				totalWords() { return m_wordList.size();}
+		static inline const QString&	getWord(int idx) {	return s_wordList[idx];	}
+		static inline int				totalWords() { return s_wordList.size();}
+		// insert words from src into dst
+		static void				insertWords(WordMap& dst, const WordMap& src);
 
 		// cosine value of two word frequency vectors
 		double					cosSimilarity(const SymbolWordAttr& other)const;
@@ -272,8 +281,8 @@ namespace CodeAtlas
 
 		QMap<int,float>					m_nameWordWeightMap;			// words only from items' name
 
-		static QHash<QString, int>		m_wordIdxMap;
-		static QList<QString>			m_wordList;
+		static QHash<QString, int>		s_wordIdxMap;
+		static QList<QString>			s_wordList;
 	};
 
 	// built in FuzzyDependBuilder
@@ -316,6 +325,28 @@ namespace CodeAtlas
 		Eigen::VectorXi				 m_childLevel;
 		DependPairList				 m_childDependPair;
 	};
+	
+	class DependRawDataAttr:public SymbolNodeAttr
+	{
+	public:
+		struct DependPath
+		{
+			DependPath(const SymbolPath& src, const SymbolPath& tar, unsigned type):m_src(src), m_tar(tar), m_type(type){}
+			SymbolPath	m_src, m_tar;
+			unsigned    m_type;
+		};
+
+		typedef QSharedPointer<DependRawDataAttr> Ptr;
+		DependRawDataAttr():SymbolNodeAttr(ATTR_DEPEND_RAW){}
+		inline static AttrType classType(){return ATTR_DEPEND_RAW;}
+		SymbolNodeAttr&     copy(const SymbolNodeAttr& s);
+
+		QList<DependPath>&	getDependPath(){return m_dependPath;}
+	protected:
+		SymbolNodeAttr::Ptr creator()const{return Ptr(new DependRawDataAttr);}
+
+		QList<DependPath>			m_dependPath;
+	};
 
 	class UIElementAttr:public SymbolNodeAttr
 	{
@@ -343,6 +374,7 @@ namespace CodeAtlas
 		void								setEntryInfo(const QVector<QPointF>& inEntries, const QVector<QPointF>& outEntries,
 														 const QVector<QPointF>& inNormals, const QVector<QPointF>& outNormals);
 
+		int&								clusterID(){return m_clusterID;}
 		const QVector<QPointF>&				getInEntries(){return m_inEntries;}
 		const QVector<QPointF>&				getOutEntries(){return m_outEntries;}
 		const QVector<QPointF>&				getInNormals(){return m_inNormals;}
@@ -359,5 +391,7 @@ namespace CodeAtlas
 		float							m_radius;
 		float							m_level;
 		QSharedPointer<QPolygonF>		m_localHull;
+
+		int								m_clusterID;
 	};
 }

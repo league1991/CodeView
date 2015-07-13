@@ -7,7 +7,7 @@ QImage CodeAtlas::CodeView::m_cursorImg;
 
 CodeView::CodeView( QWidget *parent /*= 0*/ ):
 QGraphicsView(parent), m_receiveMsg(true), m_mutex(QMutex::Recursive),
-m_alwaysSeeCursor(true), m_drawName(true), m_drawWordCloud(true)
+m_alwaysSeeCursor(true), m_drawName(true), m_drawWordCloud(true), m_showModuleCluster(true)
 { 
 	setScene(&UIManager::instance()->getScene());
 	//setCacheMode(CacheBackground);
@@ -89,7 +89,7 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 	QVector<float> valList;
 	QVector<QRgb>  clrList;
 	SymbolTree& tree = DBManager::instance()->getSymbolTree();
-	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER, SymbolInfo::Class, SymbolInfo::Root | SymbolInfo::Project | SymbolInfo::Class | SymbolInfo::Namespace);
+	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER, SymbolInfo::All, SymbolInfo::All & ~(SymbolInfo::PrivateMember|SymbolInfo::ProtectedMember));
 	/*
 	for (SymbolNode::Ptr proj; proj = *it; ++it)
 	{
@@ -101,6 +101,11 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 		foreach (SymbolNode::Ptr gloSym, globalSymbols)*/
 		for (SymbolNode::Ptr classNode; classNode = *it; ++it)
 		{
+			SymbolInfo nodeInfo = classNode->getSymInfo();
+			if (!nodeInfo.isTopLevel())
+			{
+				continue;
+			}
 			UIElementAttr::Ptr uiAttr = classNode->getAttr<UIElementAttr>();
 			if (uiAttr.isNull())
 				continue;
@@ -255,7 +260,6 @@ void CodeAtlas::CodeView::centerViewWhenNecessary()
 		return;
 	}
 }
-
 void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 {
 	struct WordCloudItem
@@ -273,18 +277,23 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 
 	// use tfidf to compute priority
 	TFIDFMaker     tfidfMaker;
+	LodMerger	   lodMerger;
 	WordCloudItem item;
 	int ithNode = 0;
+	float minRadius = FLT_MAX, maxRadius = 0;
 	SymbolTree& tree = DBManager::instance()->getSymbolTree();
-	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER,SymbolInfo::Class, SymbolInfo::All & ~SymbolInfo::Block & ~SymbolInfo::Function & ~SymbolInfo::Variable);
+	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER,SymbolInfo::ClassStruct | SymbolInfo::FunctionSignalSlot | SymbolInfo::Variable, SymbolInfo::All & ~SymbolInfo::Block );
 	for (SymbolNode::Ptr node; node = *it; ++it, ++ithNode)
 	{
+		if (!node->getSymInfo().isTopLevel())
+			continue;
+
 		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
 		if (uiAttr.isNull())continue;
 		NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
 		if (uiItem.isNull())continue;
 		if (uiItem->getLodStatus() & (LOD_INVISIBLE))continue;
-		
+
 		QRect nodeRect = mapFromScene(uiItem->mapToScene(uiItem->boundingRect())).boundingRect();
 		if (!nodeRect.intersects(this->rect()))
 		{
@@ -292,9 +301,16 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 		}
 
 		SymbolWordAttr::Ptr wordAttr = node->getAttr<SymbolWordAttr>();
+		if (!wordAttr)
+		{
+			continue;
+		}
 		const QMap<int,float>& wordWeightMap = wordAttr->getNameWordWeightMap();
 		int ithWord = 0;
 		float nodeRadius = uiItem->getEntityRadius() * 0.5;
+		minRadius = min(minRadius, nodeRadius);
+		maxRadius = max(maxRadius, nodeRadius);
+		//lodMerger.addItem()
 		srand(ithNode);
 		for (QMap<int,float>::ConstIterator pW = wordWeightMap.begin(); pW != wordWeightMap.end(); ++pW, ++ithWord)
 		{
@@ -320,7 +336,9 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 	for (int i = 0; i <  txtItemList.size(); ++i)
 	{
 		WordCloudItem &item = txtItemList[i];
-		item.m_priority = tfidfMaker.getTFIDF(item.m_nodeID, item.m_wordID);//sqrt(tfidfMaker.getTFIDF(item.m_nodeID, item.m_wordID));
+		float tfidf = tfidfMaker.getTFIDF(item.m_nodeID, item.m_wordID);
+		item.m_priority = tfidf * sqrt(item.m_classRadius);//(item.m_classRadius - minRadius)/(maxRadius-minRadius));
+		//item.m_priority = tfidf * log(1 + item.m_classRadius);
 		//item.m_priority = sqrt(item.m_priority);
 		minP = min(minP, item.m_priority);
 		maxP = max(maxP, item.m_priority);
@@ -328,10 +346,157 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 
 	// resolve overlap
 	m_overlapSolver.clearInputData();
-	float minFontSize = 12, maxFontSize = 30, interval = 6;
+	float minFontSize = 10, maxFontSize = 30, interval = 5;
+	float radiusInterval = (maxRadius - minRadius) / 5;
 	//QFont font;
 	QFont font("Tahoma", 7, QFont::Light);
 	for (int i = 0; i <  nItem; ++i)
+	{
+		WordCloudItem &item = txtItemList[i];
+		float fOffset = (maxFontSize-minFontSize)*(item.m_priority-minP)/(maxP-minP+1e-3);
+		int   iOffset = int(fOffset / interval) * interval;
+		int fs = minFontSize + iOffset;
+		item.m_fontSize = fs;
+
+		//printf("pointsize: %d maxSize = %f min %f p%f\n", fs, maxP, minP, item.m_priority);
+		font.setPointSize(item.m_fontSize);
+		QFontMetrics fm = QFontMetrics(font);
+		QSize size = fm.size(0, item.m_txt);
+
+		item.m_rect=  QRect(0,0,size.width(), size.height());
+		item.m_rect.moveCenter(item.m_pos);
+
+		const int padding = 5;
+		item.m_rect = UIUtility::expandRect(item.m_rect, padding);
+
+		int level = (item.m_classRadius - minRadius) / radiusInterval;
+		m_overlapSolver.addOverlapData(OverlapData(item.m_rect, Priority(level, item.m_priority)));
+	}
+	//m_overlapSolver.saveAsImg("pre.png");
+	m_overlapSolver.compute();
+	//m_overlapSolver.saveAsImg("after.png");
+
+	painter->setPen(QPen(QColor(98,98,98,200)));//243,241,222,200)));
+	painter->setBrush(Qt::NoBrush);
+	painter->setWorldTransform(QTransform());
+	for (int i = 0; i < nItem; ++i)
+	{
+		WordCloudItem &item = txtItemList[i];
+		if(!m_overlapSolver.isShown(i))
+			continue;
+
+		font.setPointSizeF(item.m_fontSize);
+		painter->setFont(font);
+		painter->drawText(item.m_rect,Qt::AlignCenter,item.m_txt);
+		//painter->drawRect(item.m_rect);
+	}
+}
+/*
+void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
+{
+	// use tfidf to compute priority
+	LodMerger	   lodMerger;
+	int ithNode = 0;
+	SymbolTree& tree = DBManager::instance()->getSymbolTree();
+	QList<SymbolNode::Ptr> nodeList;
+	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER,SymbolInfo::Class, SymbolInfo::All & ~SymbolInfo::Block & ~SymbolInfo::Function & ~SymbolInfo::Variable);
+	for (SymbolNode::Ptr node; node = *it; ++it, ++ithNode)
+	{
+		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
+		if (uiAttr.isNull())continue;
+		NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
+		if (uiItem.isNull())continue;
+		if (uiItem->getLodStatus() & (LOD_INVISIBLE))continue;
+		
+		QRect nodeRect = mapFromScene(uiItem->mapToScene(uiItem->entityRect())).boundingRect();
+		if (!nodeRect.intersects(this->rect()))
+		{
+			continue;
+		}
+
+		lodMerger.addItem(nodeRect.center(), nodeRect.width()* 0.5f);
+		nodeList.push_back(node);		
+	}
+	if (!nodeList.size())
+		return;
+
+	// cluster nodes
+	lodMerger.setMinMergeSize(QSizeF(200,150));
+	lodMerger.compute();
+
+	// collect words
+	int nCluster = lodMerger.getClusterNum();
+	if (!nCluster)
+		return;
+	typedef SymbolWordAttr::WordMap WordMap;
+	vector<WordMap> clusterWordList(nCluster);
+	for (int i = 0; i < nodeList.size(); ++i)
+	{
+		int clusterID = lodMerger.getClusterID(i);
+		SymbolWordAttr::Ptr wordAttr = nodeList[i]->getAttr<SymbolWordAttr>();
+		if (!wordAttr)
+			continue;
+		const WordMap& wordWeightMap = wordAttr->getNameWordWeightMap();
+		SymbolWordAttr::insertWords(clusterWordList[clusterID], wordWeightMap);
+	}
+
+	// compute tfidf
+	TFIDFMaker     tfidfMaker;
+	for (int i = 0; i < clusterWordList.size(); ++i)
+	{
+		WordMap::Iterator pW;
+		for (pW = clusterWordList[i].begin(); pW != clusterWordList[i].end(); ++pW)
+		{
+			tfidfMaker.addWord(i, pW.key(), pW.value());
+		}
+	}
+	tfidfMaker.computeTFIDF();
+
+	// extract words from each cluster
+	struct WordCloudItem
+	{
+		QString  m_txt;
+		QPoint	 m_pos;
+		QRect	 m_rect;
+		int		 m_fontSize;
+		int	     m_nodeID, m_wordID;
+		float    m_priority;
+		float	 m_classRadius;
+		int		 m_clusterID;
+	}wcItem;
+	QList<WordCloudItem> txtItemList;
+	float minP = FLT_MAX, maxP = 0;
+	for (int ithCluster = 0; ithCluster < nCluster; ++ithCluster)
+	{
+		const QRectF& rect = lodMerger.getClusterRect(ithCluster);
+		float topLeft[2] = {rect.center().x(), rect.center().y()};
+		float dim[2]     = {rect.width()*0.5f, rect.height()*0.5f};
+
+		WordMap& wordMap = clusterWordList[ithCluster];
+		srand(wordMap.size());
+		for (WordMap::Iterator pW = wordMap.begin(); pW!= wordMap.end(); ++pW)
+		{
+			wcItem.m_clusterID = ithCluster;
+
+			int wordID = pW.key();
+			wcItem.m_txt = SymbolWordAttr::getWord(wordID);
+			wcItem.m_priority = tfidfMaker.getTFIDF(ithCluster, wordID);
+			minP = min(minP, wcItem.m_priority);
+			maxP = max(maxP, wcItem.m_priority);
+			
+			float frag[2] = {rand()/float(RAND_MAX)*2.f-1.f, rand()/float(RAND_MAX)*2.f-1.f};
+			wcItem.m_pos.rx() = topLeft[0] + frag[0] * dim[0] * 0.5f;
+			wcItem.m_pos.ry() = topLeft[1] + frag[1] * dim[1] * 0.5f;
+			txtItemList.push_back(wcItem);
+		}
+	}
+	int nTxtItem = txtItemList.size();
+
+	// resolve overlap
+	m_overlapSolver.clearInputData();
+	float minFontSize = 12, maxFontSize = 30, interval = 6;
+	QFont font("Tahoma", 7, QFont::Light);
+	for (int i = 0; i <  nTxtItem; ++i)
 	{
 		WordCloudItem &item = txtItemList[i];
 		float fOffset = (maxFontSize-minFontSize)*(item.m_priority-minP)/(maxP-minP+1e-3);
@@ -356,10 +521,11 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 	m_overlapSolver.compute();
 	//m_overlapSolver.saveAsImg("after.png");
 
+	// paint
 	painter->setPen(QPen(QColor(98,98,98,200)));//243,241,222,200)));
 	painter->setBrush(Qt::NoBrush);
 	painter->setWorldTransform(QTransform());
-	for (int i = 0; i < nItem; ++i)
+	for (int i = 0; i < nTxtItem; ++i)
 	{
 		WordCloudItem &item = txtItemList[i];
 		if(!m_overlapSolver.isShown(i))
@@ -368,9 +534,14 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 		font.setPointSizeF(item.m_fontSize);
 		painter->setFont(font);
 		painter->drawText(item.m_rect,Qt::AlignCenter,item.m_txt);
-		//painter->drawRect(item.m_rect);
 	}
-}
+
+	for (int ithCluster = 0; ithCluster < nCluster; ++ithCluster)
+	{
+		const QRectF& rect = lodMerger.getClusterRect(ithCluster);
+		painter->drawRect(rect);
+	}
+}*/
 
 void CodeAtlas::CodeView::drawName( QPainter *painter )
 {
@@ -412,10 +583,11 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 			continue;
 
 		bool isExpanded = uiItem->getLodStatus() == LOD_EXPANDED;
+		bool isHighLighted=uiItem->getLodStatus() & LOD_HIGHLIGHTED;
 
 		SymbolInfo info = node->getSymInfo();
 		unsigned type = (unsigned)info.elementType();
-		if (isExpanded && (type & (SymbolInfo::Class | SymbolInfo::Project)))
+		if (isExpanded && (type & (SymbolInfo::ClassStruct | SymbolInfo::Project)))
 			continue;
 
 		QString lastPart = TextProcessor::findLastPart(uiItem->name());
@@ -423,7 +595,7 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 
 		QPointF pos;
 		QSize   titleSize; 
-		if (type & (SymbolInfo::Variable | SymbolInfo::Enum))
+		if (type & (SymbolInfo::Variable | SymbolInfo::Enum | SymbolInfo::Enumerator | SymbolInfo::Macro))
 		{
 			titleSize = varMetrics.size(0,dispName);
 			pos.ry() += uiItem->getEntityRadius();
@@ -433,7 +605,7 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 			titleSize = funcMetrics.size(0,dispName);
 			pos.ry() += uiItem->getEntityRadius();
 		}
-		else if (type & (SymbolInfo::Class|SymbolInfo::Namespace))
+		else if (type & (SymbolInfo::ClassStruct|SymbolInfo::Namespace|SymbolInfo::Struct))
 		{
 			titleSize = classMetrics.size(0,dispName);
 			//pos.ry() += uiItem->getEntityRadius() * 0.8;
@@ -454,7 +626,7 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 		if (!titleRect.intersects(viewRect))
 			continue;
 
-		const int padding = 8;
+		const int padding = isHighLighted ? 3 : 35;
 		QRect affectRect = UIUtility::expandRect(titleRect, padding);
 
 		float radius = uiItem->getEntityRadius();
@@ -490,12 +662,15 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 		unsigned type = txtItem.m_type;
 		const QRect& rect = txtItem.m_frameRect;
 
-		if ( type & (SymbolInfo::Project | SymbolInfo::Class | SymbolInfo::Enum))
+		if ( type & (SymbolInfo::Project | SymbolInfo::ClassStruct | SymbolInfo::Enum))
 		{
-			painter->setBrush(QBrush(QColor(255,255,255,150)));
+			if (txtItem.m_lodStatus == LOD_HIGHLIGHTED)
+				painter->setBrush(QBrush(QColor(200,32,2,200)));
+			else
+				painter->setBrush(QBrush(QColor(255,255,255,150)));
 			painter->setPen(Qt::NoPen);
 			const int padding = 5;
-			QRect roundedRect = rect.adjusted(-padding, 0, padding, 0);
+			QRect roundedRect = rect.adjusted(-padding, -padding/2, padding, padding/2);
 			painter->drawRoundedRect(roundedRect, padding, padding, Qt::AbsoluteSize);
 			//painter->drawRect(rect);
 		}
@@ -511,7 +686,7 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 			font = &funcFont;
 			painter->setPen(QPen(QColor(50,50,50)));
 		}
-		else if (type & SymbolInfo::Class)
+		else if (type & SymbolInfo::ClassStruct)
 		{
 			font = &classFont;
 			painter->setPen(QPen(QColor(0,0,0,150)));
@@ -529,11 +704,11 @@ void CodeAtlas::CodeView::drawName( QPainter *painter )
 
 		QRect& r = txtItem.m_frameRect;
 		QPen oriPen = painter->pen();
+
 		if (txtItem.m_lodStatus == LOD_HIGHLIGHTED)
-			painter->setPen(QPen(QColor(255,207,81)));
+			painter->setPen(QPen(QColor(255,220,100)));
 		else
 			painter->setPen(QPen(QColor(255,255,255)));
-
 		// draw outline
 		const int o = 1;
 		painter->drawText(r.translated(-o,-o), Qt::AlignCenter,brokenName);

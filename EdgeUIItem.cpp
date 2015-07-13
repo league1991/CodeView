@@ -44,6 +44,7 @@ void CodeAtlas::EdgeUIItem::paint( QPainter *painter, const QStyleOptionGraphics
 	{
 		level = uiAttr->level();
 	}
+	unsigned flag = m_edge.toStrongRef()->flag();
 	float lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(painter->worldTransform());
 	computeEdgeWidth();
 	float edgeWidth = m_edgeWidthToDraw;
@@ -51,7 +52,7 @@ void CodeAtlas::EdgeUIItem::paint( QPainter *painter, const QStyleOptionGraphics
 	// determine edge color
 	QColor laneClr;
 	int alpha = m_displayAlpha * 255;
-	bool isVarEdge = srcType & SymbolInfo::Variable || tarType & SymbolInfo::Variable;
+	bool isVarEdge = false;//srcType & SymbolInfo::Variable || tarType & SymbolInfo::Variable;
 	if (isVarEdge)
 	{
 		alpha *= 0.4;
@@ -67,6 +68,22 @@ void CodeAtlas::EdgeUIItem::paint( QPainter *painter, const QStyleOptionGraphics
 		case 4:		laneClr = QColor(254,195,101,alpha); break;
 		default:
 		case 5:		laneClr = QColor(254,177,101,alpha); break;	
+		}
+		if (flag & (Ref_Base|Ref_Type))
+		{
+			laneClr = QColor(185,122,87);
+		}
+		else if (flag & Ref_Call)
+		{
+			laneClr = QColor(255,201,14);
+		}
+		else if (flag & (Ref_Modify|Ref_Use|Ref_Set))
+		{
+			laneClr = QColor(112,146,190);
+		}
+		else if (flag & (Ref_Friend))
+		{
+			laneClr = QColor(184,206,94);
 		}
 	}
 
@@ -84,6 +101,7 @@ void CodeAtlas::EdgeUIItem::paint( QPainter *painter, const QStyleOptionGraphics
 		painter->setPen(pen);
 		painter->drawPath(m_path);
 	}
+	//laneClr.setAlphaF((m_lodStatus & (LOD_EXPANDED|LOD_HIGHLIGHTED)) ? 1 : 0.5);
 
 	QPen lanePen(laneClr, 7,Qt::SolidLine, Qt::FlatCap);
 	lanePen.setWidthF(edgeWidth);
@@ -108,6 +126,29 @@ void CodeAtlas::EdgeUIItem::paint( QPainter *painter, const QStyleOptionGraphics
 			drawArrow(painter, QColor(200,32,2));
 		else if (m_lodStatus == LOD_EXPANDED)
 			drawArrow(painter, QColor(155,155,155));
+		else
+		{
+			MatrixXf& points = m_uiAttr->pointList();
+			if (points.rows() <= 1 || points.cols() != 2)
+				return;
+
+
+			int begID = (points.rows()-2);//*0.66;
+			int endID = begID+1;
+
+			QPointF head(points(endID,0), points(endID,1));
+			QPointF tail(points(begID,0), points(begID,1));
+
+			QPointF dir = tail - head;
+			qreal l = sqrt(dir.x()*dir.x() + dir.y()*dir.y());
+			dir = dir /l  * edgeWidth*4;
+			tail = head + dir;
+			
+			QPointF nor(dir.y(), -dir.x());
+			nor *= 0.2;
+			QPointF arrowHead[3] = {tail + nor, head, tail - nor};
+			painter->drawPolyline(arrowHead, 3);
+		}
 }
 
 void CodeAtlas::EdgeUIItem::buildUI()
@@ -134,7 +175,46 @@ void CodeAtlas::EdgeUIItem::buildUI()
 
 	SymbolInfo srcInfo = src->getSymInfo();
 	SymbolInfo tarInfo = tar->getSymInfo();
-	setToolTip(tarInfo.name() + " -> " + srcInfo.name());
+
+	QString edgeAction;
+	unsigned flag = edge->flag();
+	if (flag & Ref_Base)
+	{
+		edgeAction += "inherit ";
+	}
+	if (flag & Ref_Call)
+	{
+		edgeAction += "call ";
+	}
+	if (flag & Ref_Exception)
+	{
+		edgeAction += "exception ";
+	}
+	if (flag & Ref_Friend)
+	{
+		edgeAction += "friend ";
+	}
+	if (flag & Ref_Modify)
+	{
+		edgeAction += "modify ";
+	}
+	if (flag & Ref_Override)
+	{
+		edgeAction += "override ";
+	}
+	if (flag & Ref_Set)
+	{
+		edgeAction += "set ";
+	}
+	if (flag & Ref_Type)
+	{
+		edgeAction += "typedef ";
+	}
+	if (flag & Ref_Use)
+	{
+		edgeAction += "use ";
+	}
+	setToolTip("[" + srcInfo.name() + "] " + edgeAction + "[" +tarInfo.name() + "]");
  
 	computeEdgeWidth();
 }

@@ -42,7 +42,8 @@ const QString SymbolInfo::m_elementTypeName[] = {
 	"Typedef",
 	"Union",
 	"File",
-	"Parameter"       
+	"Parameter",
+	"Folder"
 };
 
 QSet<QString> CodeAtlas::SymbolInfo::m_primaryTypeWords;
@@ -160,6 +161,7 @@ unsigned CodeAtlas::SymbolPath::findCommonLength( const SymbolPath& p )const
 
 void CodeAtlas::SymbolPath::getTopLevelItemPath( SymbolPath& path ) const
 {
+	/*
 	path.clear();
 	int length      = m_symbolPath.size();
 	int functionIdx = length;
@@ -181,9 +183,33 @@ void CodeAtlas::SymbolPath::getTopLevelItemPath( SymbolPath& path ) const
 
 	for (int i = 0; i <= validIdx; ++i)
 		path.m_symbolPath.append(m_symbolPath[i]);
+	path.rehash();*/
+
+	path.clear();
+	for (int i = 0; i < m_symbolPath.size(); ++i)
+	{
+		path.m_symbolPath.append(m_symbolPath[i]);
+		if (m_symbolPath[i].isTopLevel())
+		{
+			break;
+		}
+	}
 	path.rehash();
 }
-
+SymbolPath CodeAtlas::SymbolPath::getTopLevelItemPath() const
+{
+	SymbolPath path;
+	for (int i = 0; i < m_symbolPath.size(); ++i)
+	{
+		path.m_symbolPath.append(m_symbolPath[i]);
+		if (m_symbolPath[i].isTopLevel())
+		{
+			break;
+		}
+	}
+	path.rehash();
+	return path;
+}
 int CodeAtlas::SymbolPath::getLength() const
 {
 	return getSymbolCount();
@@ -310,4 +336,19 @@ int CodeAtlas::SymbolInfo::elementTypeIdx( ElementType type )
 			return ithTag+1;
 	}
 	return 0;// "unknown"
+}
+
+void CodeAtlas::SymbolInfo::setFlag( bool isSet, unsigned flag )
+{
+	if (isSet)
+	{
+		m_flag |= flag;
+	}
+	else
+		m_flag &= (~flag);
+}
+
+void CodeAtlas::SymbolInfo::setTopLevel( bool isTop )
+{
+	setFlag(isTop, TopLevel);
 }

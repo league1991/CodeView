@@ -38,7 +38,7 @@ public:
 	void getU(Eigen::MatrixXf& U);						// U
 	void getV(Eigen::MatrixXf& V);						// V
 	void getS(Eigen::VectorXf& S);						// ¦²
-	void getUSqrtS(Eigen::MatrixXd& USqrtS);			// U * sqrt(¦²)
+	void getUS(Eigen::MatrixXf& USqrtS);			// U * sqrt(¦²)
 
 	void print();
 	void printApproxMat();

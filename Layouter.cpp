@@ -518,7 +518,9 @@ bool Layouter::computeEdgeRoute(DelaunayCore::DelaunayRouter router)
 		if (!route.size())
 			continue;
 
-		BSpline bsplineMaker(3, BSpline::BSPLINE_OPEN_UNIFORM, true);			// use B-spline to smooth route curve
+		BSpline bsplineMaker(4, BSpline::BSPLINE_OPEN_UNIFORM, true);			// use B-spline to smooth route curve
+		bsplineMaker.setRelaxation(true);
+		bsplineMaker.setRelaxWeight(0.06);
 		for (int i = 0; i < route.size(); ++i)
 			bsplineMaker.addPoint(route[i].X, route[i].Y);
 		bsplineMaker.computeLine(route.size() * 3);
@@ -712,6 +714,8 @@ bool CodeAtlas::Layouter::graphLayout( const SparseMatrix& veMat, const VectorXf
 		edgeLength[edgeArray.back()] = 1;
 	}
 
+
+
 	MatrixXd pos;
 	pos.resize(nNodes, 2);
 
@@ -729,12 +733,23 @@ bool CodeAtlas::Layouter::graphLayout( const SparseMatrix& veMat, const VectorXf
 			pos(v,0) = x;
 			pos(v,1) = y;
 		}
+
+		int fid = rand();
+		char buf[20];
+		sprintf(buf, "graph%d.gml", fid);
+		ofstream file(buf);
+		GA.writeGML(file);
+		file.close();
+
 		MDSPostProcesser m_postProcessor(5000, sparseFactor, 1.0, 0.1, minRadius * 1);
 		m_postProcessor.set2DPos(pos, radiusVec.cast<double>());
 		m_postProcessor.compute();
 		m_postProcessor.getFinalPos(pos);
 		finalPos2D = pos.cast<float>();
 		finalRadius = m_postProcessor.getFinalRadius();
+
+		sprintf(buf, "graph%d.gexf", fid);
+		GraphUtility::saveToGexf(buf, veMat, &pos);
 	}
 	catch(...)//AlgorithmFailureException e
 	{

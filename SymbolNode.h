@@ -105,7 +105,8 @@ namespace CodeAtlas
 
 		// child management
 		static void			appendChild(const SymbolNode::Ptr& parent, const SymbolNode::Ptr& child, const SymbolInfo& childInfo);
-		static SymbolNode::Ptr addOrFindChild( const SymbolNode::Ptr& parent,const SymbolInfo &inf, unsigned timeStamp);
+		static SymbolNode::Ptr addOrFindChild( const SymbolNode::Ptr& parent,const SymbolInfo &inf, unsigned timeStamp=0);
+		static void			addOrReplaceChild( const SymbolNode::Ptr& parent,const SymbolInfo &inf, const SymbolNode::Ptr& child, unsigned timeStamp=0);
 		void                removeChild(const SymbolInfo &inf);
 		SymbolNode::Ptr		child(const SymbolInfo &inf) const;
 		int                 childCount() const;
@@ -211,8 +212,7 @@ namespace CodeAtlas
 		AttrListMap										m_attrList;			// attribute list
 		EdgeListMap										m_inEdgeList;		// edge lists
 		EdgeListMap										m_outEdgeList;
-		unsigned										m_timeStamp;		// time stamp used for sync
-		
+		unsigned										m_timeStamp;		// time stamp used for sync		
 };
 
 	class SymbolTree
@@ -225,7 +225,9 @@ namespace CodeAtlas
 		~SymbolTree(){}
 
 		// find item by path, whose first element is the child of this item, not this item itself
-		SymbolNode::ConstPtr findItem(SymbolPath& path)const
+		SymbolNode::ConstPtr findItem(const SymbolPath& path)const
+		{   return m_root->findItem(path);	}
+		SymbolNode::Ptr findItem(const SymbolPath& path)
 		{   return m_root->findItem(path);	}
 
 		SymbolNode::Ptr		 getRoot()const{return m_root;}

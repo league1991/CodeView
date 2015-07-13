@@ -90,6 +90,8 @@ void CodeAtlas::LodManager::computeEdgeLod(SymbolNode::Ptr& parent)
 				}
 				else
 				{
+					bool  isTopLevelEdge = srcInfo.isTopLevel() && tarInfo.isTopLevel();
+
 					QRectF brect = uiItem->boundingRect();
 					float viewRadius = UIUtility::rectRadius(brect) * m_lod;
 					float viewEdgeWidth = uiItem->getEdgeWidth() * m_lod;
@@ -97,9 +99,11 @@ void CodeAtlas::LodManager::computeEdgeLod(SymbolNode::Ptr& parent)
 					const float showRadius = 150;
 					float sizeAlpha = MathUtility::linearInterpolateClamp(QPointF(hideRadius,0), QPointF(showRadius,1), viewRadius);
 					float edgeAlpha = MathUtility::linearInterpolateClamp(QPointF(0.2,0), QPointF(0.5,1), viewEdgeWidth);
-					float alpha = min(0.5f * sizeAlpha + edgeAlpha, 1.f);
+					float alpha = edgeAlpha;// min(0.5f * sizeAlpha + edgeAlpha, 1.f);
 					float edgeWidth = uiItem->getEdgeWidth();
 					bool  isHighlighted = srcUiAttr->getUIItem()->isSelected() || tarUiAttr->getUIItem()->isSelected();
+
+					float radiusProduct = min(srcUiAttr->radius() , tarUiAttr->radius()) * m_lod;
 
 					float level = isVarRefEdge ? 0 : srcUiAttr->level();
 					float highLightZValue = NodeUIItem::getNodeBaseZValue() -1;
@@ -116,7 +120,7 @@ void CodeAtlas::LodManager::computeEdgeLod(SymbolNode::Ptr& parent)
 						uiItem->setEdgeWidthToDraw(dr);
 						zValue = highLightZValue;
 					}
-					else if (alpha > 0.2)
+					else if (((isTopLevelEdge && radiusProduct > 20) || !isTopLevelEdge) && viewEdgeWidth > 0.2)
 					{
 						float viewWidth = uiItem->getInvariantEdgeViewWidth();
 						if (viewWidth > edgeWidth * m_lod)
@@ -142,6 +146,7 @@ void CodeAtlas::LodManager::computeEdgeLod(SymbolNode::Ptr& parent)
 			else
 				lodStatus = LOD_INVISIBLE;
 
+			//lodStatus = LOD_INVISIBLE;
 			uiItem->setLodStatus(lodStatus);
 		}
 
@@ -172,7 +177,7 @@ void CodeAtlas::LodManager::computeChildLod(SymbolNode::Ptr& parent,
 		}
 		else if (!uiItem->mapRectToScene(uiItem->boundingRect()).intersects(m_viewRect))
 		{
-			lodStatus = parentStatus;
+			lodStatus = LOD_INVISIBLE;// parentStatus;
 		}
 		// hide all childs
 		else if (parentStatus & (LOD_INVISIBLE | LOD_FOLDED))
@@ -185,21 +190,21 @@ void CodeAtlas::LodManager::computeChildLod(SymbolNode::Ptr& parent,
 			SymbolInfo::ElementType type = childInfo.elementType();
 			float viewDiam = uiItem->getEntityRadius() * m_lod * 2;
 						
-			if (type & (SymbolInfo::Class | SymbolInfo::Enum | SymbolInfo::Namespace))
+			if (type & (SymbolInfo::ClassStruct | SymbolInfo::Enum | SymbolInfo::Namespace | SymbolInfo::Struct))
 			{
 				classD = viewDiam;
-				if (0&&m_lod < 0.001 && parentProjD < 50)
+				if  (classD < 1 && !childInfo.isTopLevel())
 					lodStatus = LOD_INVISIBLE;
-				else if (m_lod > 0.1 || viewDiam > 100)
+				else if (classD > 150)
 					lodStatus = LOD_EXPANDED;
 				else
 					lodStatus = LOD_FOLDED;
 			}
-			else if (type & (SymbolInfo::FunctionSignalSlot | SymbolInfo::Variable | SymbolInfo::Enumerator | SymbolInfo::Macro))
+			else if (type & (SymbolInfo::FunctionSignalSlot | SymbolInfo::Variable | SymbolInfo::Enumerator | SymbolInfo::Macro | SymbolInfo::Parameter))
 			{ 
 				if (m_lod > 0.4  || viewDiam > 10)
 					lodStatus = LOD_EXPANDED;
-				else if (m_lod < 0.1 && parentProjD < 150)
+				else if (m_lod < 0.1 && parentProjD < 150  && !childInfo.isTopLevel())
 					lodStatus = LOD_INVISIBLE;
 				else
 					lodStatus = LOD_FOLDED;
@@ -269,8 +274,8 @@ void CodeAtlas::LodManager::countProjRadius()
 	m_maxClassRadius = 0;
 
 	SmartDepthIterator nIt( m_root, DepthIterator::PREORDER,
-		SymbolInfo::Project | SymbolInfo::Class,
-		SymbolInfo::Root | SymbolInfo::Project | SymbolInfo::Namespace | SymbolInfo::Class);
+		SymbolInfo::Project | SymbolInfo::ClassStruct,
+		SymbolInfo::Root | SymbolInfo::Project | SymbolInfo::Namespace | SymbolInfo::ClassStruct);
 
 	float totalRadius = 0;
 	int projCount = 0;
@@ -280,7 +285,7 @@ void CodeAtlas::LodManager::countProjRadius()
 		if (UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>())
 		{
 			float r = uiAttr->radius();
-			if (node->getSymInfo().isClass())
+			if (node->getSymInfo().isClassOrStruct())
 			{
 				m_maxClassRadius = max(m_maxClassRadius, r);
 			}
@@ -302,8 +307,8 @@ void CodeAtlas::LodManager::compute()
 	countProjRadius();
 	setAllEdgeExpanded();
 	computeChildLod(m_root, LOD_EXPANDED);
-	//computeEdgeLod(m_root);
-	setAllEdgeInvisible();
+	computeEdgeLod(m_root);
+	//setAllEdgeInvisible();
 }
 
 void CodeAtlas::LodManager::setAllEdgeInvisible()

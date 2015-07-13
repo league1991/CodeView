@@ -3,7 +3,7 @@
 
 using namespace CodeAtlas;
 
-BSpline::BSpline(int d1, Type type, bool simplifyPnts):m_u(NULL), m_type(type), m_nKnots(0), m_simplifyPnts(simplifyPnts)
+BSpline::BSpline(int d1, Type type, bool simplifyPnts):m_u(NULL), m_type(type), m_nKnots(0), m_simplifyPnts(simplifyPnts), m_relaxation(false), m_relaxWeight(0)
 {
 	//degree+1
 	m_d=d1;
@@ -28,7 +28,7 @@ void BSpline::addPoint( float a,float b)
 QPointF BSpline::computePoint( float t)
 {
 	//given a t, return the correspond Point
-	QPointF temp;
+	QPointF temp(0,0);
 	float weightSum = 0;
 	for (int i=0;i<m_orginPt.size();i++)
 	{
@@ -45,6 +45,13 @@ QPointF BSpline::computePoint( float t)
 	}
 	if (weightSum > 0)
 		temp /= weightSum;
+	if (m_relaxation)
+	{
+		QPointF& begPnt = m_orginPt[0];
+		QPointF& endPnt = m_orginPt[m_orginPt.size()-1];
+		QPointF linePnt = (1-t)*begPnt + t*endPnt;
+		temp = temp * (1-m_relaxWeight) + m_relaxWeight * linePnt;
+	}
 	return temp;
 }
 

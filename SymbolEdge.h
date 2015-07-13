@@ -37,6 +37,7 @@ namespace CodeAtlas
 		float							strength()const{return m_strength;}
 		float&							strength(){return m_strength;}
 
+		unsigned&						flag(){return m_flag;}
 		template<typename T> QSharedPointer<T> getAttr()const
 		{
 			return qSharedPointerCast<T>(m_attrList[T::classType()]);
@@ -53,6 +54,7 @@ namespace CodeAtlas
 	protected:
 	private:
 		const EdgeType			 m_type;
+		unsigned				 m_flag;
 		QWeakPointer<SymbolNode> m_srcNode;
 		QWeakPointer<SymbolNode> m_tarNode;
 		float					 m_strength;

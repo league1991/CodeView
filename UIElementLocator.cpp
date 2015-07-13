@@ -54,12 +54,14 @@ bool UIElementLocator::layoutTree( SymbolNode::Ptr& root )
 
 		Layouter* layouter = NULL;
 		SymbolInfo nodeInfo = node->getSymInfo();
-		if (nodeInfo.isClass())
+		if (nodeInfo.isClassOrStruct())
 			layouter = &classLayouter;
 		else if (nodeInfo.isEnum() || nodeInfo.elementType() == SymbolInfo::Enumerator)
 			layouter = &trivalLayouter;
 		else
+		{
 			layouter = &compLayouter;
+		}
 
 		layouter->setNodes(childList, node);
 		layouter->compute();
@@ -161,7 +163,7 @@ void UIElementLocator::updateUIItemTree( SymbolNode::Ptr& globalSym,  SymbolNode
 	for (SymbolNode::Ptr node; node = *it; ++it)
 	{
 		SymbolInfo info = node->getSymInfo();
-		if (info.elementType() == SymbolInfo::Class)
+		if (info.elementType() == SymbolInfo::ClassStruct)
 		{
 			// compute convex hull
 			int nChild = node->childCount();
@@ -256,6 +258,7 @@ void UIElementLocator::modifyTree()
 	SymbolNode::Ptr root = m_tree->getRoot();
 
 // 	const QSet<SymbolNode::Ptr>& dirtyProj = m_tree->getDirtyProject();
+	/*
 	QSet<SymbolNode::Ptr> projList;
 	for(SymbolNode::ChildIterator pChild = root->childBegin();
 		pChild != root->childEnd(); pChild++)
@@ -303,7 +306,7 @@ void UIElementLocator::modifyTree()
 	float totalRadius = rootUI->radius();
 	//layoutProjects(root, totalRadius);
 
-	qDebug("total radius: %f", totalRadius);
+	qDebug("total radius: %f", totalRadius);  
 	float  sceneR = totalRadius * 3.f;
 	QRectF sceneRect = QRectF(-sceneR, -sceneR, sceneR*2.f, sceneR*2.f);
 	m_tree->setTreeRect(sceneRect);

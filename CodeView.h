@@ -20,6 +20,8 @@ public:
 
 	void			setDrawNames(bool b){m_drawName = b;}
 	void			setDrawWordCloud(bool b){m_drawWordCloud = b;}
+
+	bool&			showModuleCluster(){return m_showModuleCluster;}
 signals:
 protected:
 	virtual void    paintEvent(QPaintEvent *event);
@@ -47,6 +49,8 @@ protected:
 	LodManager			m_lodManager;
 
 	static QImage		m_cursorImg;
+
+	bool				m_showModuleCluster;
 };
 
 }

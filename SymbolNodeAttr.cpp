@@ -8,8 +8,8 @@ using namespace Qt4ProjectManager;
 using namespace QmakeProjectManager;
 #endif
 
-QHash<QString, int> SymbolWordAttr::m_wordIdxMap;
-QList<QString>		SymbolWordAttr::m_wordList;
+QHash<QString, int> SymbolWordAttr::s_wordIdxMap;
+QList<QString>		SymbolWordAttr::s_wordList;
 
 SymbolNodeAttr& SymbolNodeAttr::operator=( const SymbolNodeAttr& s )
 {
@@ -181,18 +181,18 @@ SymbolNodeAttr& ChildInfoAttr::substract( const SymbolNodeAttr& s )
 
 void SymbolWordAttr::clearGlobalWordMap()
 {
-	m_wordIdxMap.clear();
-	m_wordList.clear();
+	s_wordIdxMap.clear();
+	s_wordList.clear();
 }
 
 int SymbolWordAttr::addOrGetWord( const QString& word )
 {
-	if (!m_wordIdxMap.contains(word))
+	if (!s_wordIdxMap.contains(word))
 	{
-		m_wordIdxMap.insert(word, m_wordList.size());
-		m_wordList.push_back(word);
+		s_wordIdxMap.insert(word, s_wordList.size());
+		s_wordList.push_back(word);
 	}
-	return m_wordIdxMap[word];
+	return s_wordIdxMap[word];
 }
 
 void SymbolWordAttr::setWords( const SymbolNode::Ptr& node )
@@ -328,7 +328,7 @@ QString SymbolWordAttr::toString() const
 	for (QMap<int,float>::ConstIterator pWord = m_wordWeightMap.constBegin();
 		pWord != m_wordWeightMap.constEnd(); ++pWord)
 	{
-		const QString& word = m_wordList[pWord.key()];
+		const QString& word = s_wordList[pWord.key()];
 		res += (word + QString(": %1  ").arg(pWord.value()));
 	}
 	return res;
@@ -562,4 +562,42 @@ void CodeAtlas::UIElementAttr::setEntryInfo( const QVector<QPointF>& inEntries, 
 	m_outEntries = outEntries;
 	m_inNormals = inNormals;
 	m_outNormals = outNormals;
+}
+
+void CodeAtlas::SymbolWordAttr::insertWords( WordMap& dst, const WordMap& src )
+{
+	WordMap::ConstIterator pWordMap;
+	for (pWordMap = src.constBegin(); pWordMap != src.constEnd(); ++pWordMap)
+	{
+		if (dst.contains(pWordMap.key()))
+			dst[pWordMap.key()] += pWordMap.value();
+		else
+			dst[pWordMap.key()] =  pWordMap.value();
+	}
+}
+
+void CodeAtlas::SymbolWordAttr::mergeWords( WordMap& dst, const WordMap& src )
+{
+	QMap<int, float>::ConstIterator pWordMap;
+	for (pWordMap = src.constBegin(); pWordMap != src.constEnd(); ++pWordMap)
+	{
+		if (dst.contains(pWordMap.key()))
+			dst[pWordMap.key()] += pWordMap.value();
+		else
+			dst[pWordMap.key()] =  pWordMap.value();
+	}
+}
+
+void CodeAtlas::SymbolWordAttr::mergeNameWordWeightMap( const WordMap& other )
+{
+	return mergeWords(m_nameWordWeightMap, other);
+}
+
+SymbolNodeAttr& CodeAtlas::DependRawDataAttr::copy( const SymbolNodeAttr& s )
+{
+	if (DependRawDataAttr* pS = castTo<DependRawDataAttr>(s))
+	{
+		m_dependPath = pS->m_dependPath;
+	}
+	return *this;
 }

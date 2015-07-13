@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'MainUI.h'
 **
-** Created: Wed Jun 24 17:43:42 2015
+** Created: Fri Jul 10 19:50:41 2015
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.4)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_CodeAtlas__MainUI[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-       6,   14, // methods
+       7,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -37,6 +37,7 @@ static const uint qt_meta_data_CodeAtlas__MainUI[] = {
       85,   57,   18,   18, 0x0a,
      105,   57,   18,   18, 0x0a,
      121,   57,   18,   18, 0x0a,
+     142,   57,   18,   18, 0x0a,
 
        0        // eod
 };
@@ -45,7 +46,7 @@ static const char qt_meta_stringdata_CodeAtlas__MainUI[] = {
     "CodeAtlas::MainUI\0\0resetDB()\0isActivate\0"
     "onActivate(bool)\0checked\0functionCheck(bool)\0"
     "variableCheck(bool)\0nameCheck(bool)\0"
-    "wordCloudCheck(bool)\0"
+    "wordCloudCheck(bool)\0moduleClusterCheck(bool)\0"
 };
 
 void CodeAtlas::MainUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
@@ -60,6 +61,7 @@ void CodeAtlas::MainUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, in
         case 3: _t->variableCheck((*reinterpret_cast< bool(*)>(_a[1]))); break;
         case 4: _t->nameCheck((*reinterpret_cast< bool(*)>(_a[1]))); break;
         case 5: _t->wordCloudCheck((*reinterpret_cast< bool(*)>(_a[1]))); break;
+        case 6: _t->moduleClusterCheck((*reinterpret_cast< bool(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -97,9 +99,9 @@ int CodeAtlas::MainUI::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 6)
+        if (_id < 7)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 6;
+        _id -= 7;
     }
     return _id;
 }

@@ -679,3 +679,66 @@ void CodeAtlas::GraphUtility::computeSubGraphVtxLevel( const SparseMatrix& veMat
 			level[i] = subLevel[ithNon++];
 	}
 }
+
+bool CodeAtlas::GraphUtility::saveToGexf( const char* fileName, const SparseMatrix& vtxEdgeMatrix, MatrixXd* position /*= NULL*/ )
+{
+	ofstream file(fileName);
+	file << 
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		"<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\" xmlns:viz=\"http://www.gexf.net/1.2draft/viz\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd\">\n"
+		"<meta lastmodifieddate=\"2015-07-06\">\n"
+		"<creator>Gephi 0.8.1</creator>\n"
+		"<description></description>\n"
+		"</meta>\n"
+		"<graph defaultedgetype=\"directed\" mode=\"static\">\n";
+
+	// write nodes
+	file << "    <nodes>\n";
+	char buf[200];
+	for (int ithNode = 0; ithNode < vtxEdgeMatrix.rows(); ++ithNode)
+	{
+		sprintf(buf,       
+			"<node id=\"%d\" label=\"%d\">\n"
+			"<attvalues></attvalues>\n"
+			"<viz:size value=\"1.0\"></viz:size>\n",
+			ithNode, ithNode);
+		file << buf;
+
+		if(position)
+		{
+			sprintf(buf,
+				"<viz:position x=\"%f\" y=\"%f\" z=\"0\"></viz:position>\n",
+				(*position)(ithNode,0), (*position)(ithNode,1));
+			file << buf;
+		}
+
+		QColor c = QColor::fromHsv(0, 255, 255);
+		sprintf(buf,
+			"<viz:color r=\"%d\" g=\"%d\" b=\"%d\"></viz:color>\n"
+			"</node>\n",
+			c.red(), c.green(), c.blue());
+		file << buf;
+
+	}
+	file << "    </nodes>\n";
+
+	// write edges
+	file << "    <edges>\n";
+	for (int ithEdge = 0; ithEdge < vtxEdgeMatrix.cols(); ++ithEdge)
+	{
+		int src, tar;
+		GraphUtility::getVtxFromEdge(vtxEdgeMatrix, ithEdge, src, tar);
+		sprintf(buf, 
+			"<edge source=\"%d\" target=\"%d\" label=\"%d\">\n"
+			"<attvalues></attvalues>\n"
+			"</edge>\n", src, tar, ithEdge);
+		file << buf;
+	}
+	file << "    </edges>\n";
+
+	file << "  </graph>\n"
+		"</gexf>";
+
+	file.close();
+	return true;
+}

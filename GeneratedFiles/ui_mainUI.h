@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainUI.ui'
 **
-** Created: Wed Jun 24 17:43:41 2015
+** Created: Sat Jul 11 13:30:37 2015
 **      by: Qt User Interface Compiler version 4.8.4
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -16,6 +16,7 @@
 #include <QtGui/QButtonGroup>
 #include <QtGui/QHeaderView>
 #include <QtGui/QMainWindow>
+#include <QtGui/QMenu>
 #include <QtGui/QMenuBar>
 #include <QtGui/QStatusBar>
 #include <QtGui/QToolBar>
@@ -30,8 +31,10 @@ public:
     QAction *actionShowFunctions;
     QAction *actionShowNames;
     QAction *actionShowWordCloud;
+    QAction *actionShowModuleCluster;
     CodeAtlas::CodeView *centralwidget;
     QMenuBar *menubar;
+    QMenu *menuView;
     QStatusBar *statusbar;
     QToolBar *toolBar;
 
@@ -56,12 +59,18 @@ public:
         actionShowWordCloud->setObjectName(QString::fromUtf8("actionShowWordCloud"));
         actionShowWordCloud->setCheckable(true);
         actionShowWordCloud->setChecked(true);
+        actionShowModuleCluster = new QAction(MainUI);
+        actionShowModuleCluster->setObjectName(QString::fromUtf8("actionShowModuleCluster"));
+        actionShowModuleCluster->setCheckable(true);
+        actionShowModuleCluster->setChecked(true);
         centralwidget = new CodeAtlas::CodeView(MainUI);
         centralwidget->setObjectName(QString::fromUtf8("centralwidget"));
         MainUI->setCentralWidget(centralwidget);
         menubar = new QMenuBar(MainUI);
         menubar->setObjectName(QString::fromUtf8("menubar"));
         menubar->setGeometry(QRect(0, 0, 660, 22));
+        menuView = new QMenu(menubar);
+        menuView->setObjectName(QString::fromUtf8("menuView"));
         MainUI->setMenuBar(menubar);
         statusbar = new QStatusBar(MainUI);
         statusbar->setObjectName(QString::fromUtf8("statusbar"));
@@ -70,10 +79,12 @@ public:
         toolBar->setObjectName(QString::fromUtf8("toolBar"));
         MainUI->addToolBar(Qt::TopToolBarArea, toolBar);
 
-        toolBar->addAction(actionShowVariables);
-        toolBar->addAction(actionShowFunctions);
-        toolBar->addAction(actionShowNames);
-        toolBar->addAction(actionShowWordCloud);
+        menubar->addAction(menuView->menuAction());
+        menuView->addAction(actionShowVariables);
+        menuView->addAction(actionShowFunctions);
+        menuView->addAction(actionShowNames);
+        menuView->addAction(actionShowWordCloud);
+        menuView->addAction(actionShowModuleCluster);
 
         retranslateUi(MainUI);
 
@@ -87,6 +98,8 @@ public:
         actionShowFunctions->setText(QApplication::translate("MainUI", "showFunctions", 0, QApplication::UnicodeUTF8));
         actionShowNames->setText(QApplication::translate("MainUI", "showNames", 0, QApplication::UnicodeUTF8));
         actionShowWordCloud->setText(QApplication::translate("MainUI", "showWordCloud", 0, QApplication::UnicodeUTF8));
+        actionShowModuleCluster->setText(QApplication::translate("MainUI", "show module cluster", 0, QApplication::UnicodeUTF8));
+        menuView->setTitle(QApplication::translate("MainUI", "View", 0, QApplication::UnicodeUTF8));
         toolBar->setWindowTitle(QApplication::translate("MainUI", "toolBar", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 

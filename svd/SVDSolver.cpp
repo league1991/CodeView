@@ -297,7 +297,7 @@ void SVDSolver::getS( Eigen::VectorXf& S )
 	}
 }
 
-void SVDSolver::getUSqrtS( Eigen::MatrixXd& USqrtS )
+void SVDSolver::getUS( Eigen::MatrixXf& USqrtS )
 {
 	if (!m_mat || !m_svdResult)
 		return;

@@ -84,17 +84,6 @@ namespace CodeAtlas
 		void			updateDirtyData(){}
 
 	private:
-		void			buildDependPath();
-		void			buildNodeDepend(SymbolNode::Ptr node, 
-										SymbolPath& nodePath,
-										QList<int>& dependIDList);
-		bool			buildDependData(QList<DBDependData>& dependData);
-
-		struct DependPath
-		{
-			DependPath(const SymbolPath& src, const SymbolPath& tar):m_src(src), m_tar(tar){}
-			SymbolPath	m_src, m_tar;
-		};
 		struct Pair
 		{
 			Pair(int src, int tar):m_src(src), m_tar(tar){}
@@ -103,13 +92,34 @@ namespace CodeAtlas
 
 			int m_src, m_tar;
 		};
+		typedef DependRawDataAttr::DependPath DependPath;
 
 		friend uint qHash(const Pair& p);
-		QList<DependPath>			m_dependPath;
+		void			buildDependPath();
+		void			buildNodeDepend(SymbolNode::Ptr node, 
+										SymbolPath& nodePath,
+										QList<int>& dependIDList);
+		bool			buildDependData(QList<DBDependData>& dependData);
+
+		QList<DependPath>& getDependPath();
 	};
 
 	inline uint qHash(const GeneralDependBuilder::Pair& p)
 	{
 		return (p.m_src << 16) | p.m_tar;
 	}
+
+
+	class Modulizer:public SymbolModifier
+	{
+	public:
+		void			clearCache(){}
+		void			modifyTree()
+		{
+			randomModularize();
+		}
+		void			updateDirtyData(){}
+	private:
+		void randomModularize();
+	};
 }

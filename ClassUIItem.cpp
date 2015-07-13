@@ -170,7 +170,25 @@ void ClassUIItem::paint( QPainter *painter, const QStyleOptionGraphicsItem *opti
 			}
 			else if (m_lodStatus == LOD_FOLDED)
 			{
+				bool showModule = false;
+
+				if (CodeView* view = qobject_cast<CodeView*>(widget->parent()))
+				{					
+					showModule = view->showModuleCluster();
+				}
+				else
+					qDebug("no codeview");
+
 				QBrush brush(QColor(187,182,164));
+				if (showModule)
+				{
+					int cID = m_uiAttr->clusterID();
+					int h = (cID & 0xf);
+					int s = 3 - ((cID & 0x30) >> 4);
+					int v = 3 - ((cID & 0xc0) >> 6);
+					brush = QBrush(QColor::fromHsv((h * 21)%359, s * (255/3.5f), v *(255/3.5f)));
+				}
+
 				if (m_interactionFlag & IS_MOUSE_HOVER)
 				{
 					brush.setColor(QColor(165,150,112));

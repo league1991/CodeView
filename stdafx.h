@@ -61,6 +61,11 @@
 // understand
 #include <udb.h>
 
+// macros
+#define IS_OUT_OF_RANGE(v, minV, maxV)   ((v) < (minV) || (v) > (maxV))
+#define ARRAY_OUT_OF_RANGE(v, size)		 (IS_OUT_OF_RANGE(v,0,(int(size)-1)))
+
+// my files
 #include "globalSetting.h"
 
 #include "GlobalUtility.h"
@@ -70,6 +75,7 @@
 #include "LaplacianSolver.h"
 #include "pcasolver.h"
 #include "GraphUtility.h"
+#include "ModuleClusterer.h"
 #include "GeometryUtility.h"
 #include "BSpline.h"
 
@@ -83,6 +89,7 @@
 #include "SymbolNode.h"
 #include "symEdgeIter.h"
 #include "symnodeiter.h"
+#include "CutModularizer.h"
 #include "SymbolModifier.h"
 #include "Delaunay/DelaunayRoute.h"
 #include "Layouter.h"
@@ -104,6 +111,7 @@
 #include "MathUtility.h"
 #include "UIUtility.h"
 #include "LodManager.h"
+#include "LodMerger.h"
 #include "backgroundRenderer.h"
 #include "TextProcessor.h"
 #include "OverlapSolver.h"

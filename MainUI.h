@@ -20,6 +20,7 @@ public slots:
 	void   variableCheck(bool checked);
 	void   nameCheck(bool checked);
 	void   wordCloudCheck(bool checked);
+	void   moduleClusterCheck(bool checked);
 private:
 
 	CodeView*		    getView()

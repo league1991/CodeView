@@ -28,6 +28,9 @@ public:
 	QPainterPath getPainterPath(int nSeg );
 	void	computeLine(int nSeg);				//determine the value of each t, line the points into a list
 	void	setSimplifyMinAngles(float radian);
+	void	setRelaxation(bool b){m_relaxation = b;}
+	void	setRelaxWeight(float f){m_relaxWeight = f;}
+
 private:	
 	float	computeB(int k,int d1,float u1);	//compute value of B for computePoint
 	float   computePeriodicB(int k, int d1, float u1);
@@ -44,6 +47,9 @@ private:
 
 	bool			m_simplifyPnts;				//simplify curve points
 	float			m_cosSqThreshold;			//threshold used to simplify pnts
+
+	bool			m_relaxation;				//use relaxation
+	float			m_relaxWeight;
 };
 }
 

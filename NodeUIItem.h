@@ -90,6 +90,7 @@ namespace CodeAtlas{
 		const SymbolNode::WeakPtr& getNode()const{return m_node;}
 
 		inline static float   getNodeBaseZValue(){return s_nodeBaseZValue;}
+
 	protected:
 		// item interaction status
 		void	        updateMode(const QTransform& worldTransform);
@@ -138,6 +139,7 @@ namespace CodeAtlas{
 
 		unsigned						m_interactionFlag;// ui status
 		bool							m_isMouseHover;
+
 	private:
 
 		static QList<UIItemModel::Ptr>  m_uiItemModelList;

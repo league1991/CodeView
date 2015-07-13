@@ -24,11 +24,12 @@ bool CodeAtlas::DBManager::parse()
 	builder.addModifier(SymbolModifier::Ptr(new WordCollector));
 	//builder.addModifier(SymbolModifier::Ptr(new FuzzyDependBuilder));
 	builder.addModifier(SymbolModifier::Ptr(new GeneralDependBuilder));
+	//builder.addModifier(SymbolModifier::Ptr(new Modulizer));
 	builder.addModifier(SymbolModifier::Ptr(new UIElementLocator));
 
 	builder.buildTree();
 	builder.applyModifiers();
-	//builder.getTree().print();
+	builder.getTree().print();
 	return true;
 }
 

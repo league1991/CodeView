@@ -305,6 +305,9 @@ void DelaunayRouter::buildOpenMeshData()
 	m_halfEdgeData.resize(nHEdge);
 	m_faceData.resize(nFace);
 
+// 	char fileName[30];
+// 	sprintf(fileName, "mesh%d.obj", rand());
+// 	OpenMesh::IO::write_mesh(m_mesh, fileName);
 }
 
 
@@ -1507,6 +1510,7 @@ bool DelaunayCore::DelaunayRouter::getRoute( const vector<int>& srcList, const v
 		VtxPoint m_boundPoint;
 		set<int> m_adjEdges;
 		vector<VtxPoint> m_adjEndPoints;
+		bool	 m_isValid;
 	};
 	vector<RouteEdgeData> routeEdgeData(m_mesh.n_halfedges());
 
@@ -1626,15 +1630,64 @@ bool DelaunayCore::DelaunayRouter::getRoute( const vector<int>& srcList, const v
 		}
 	}
 
+	
+	// remove unnecessary edge
+	for(int ithHE = 0; ithHE < routeEdgeData.size(); ++ithHE)
+	{
+		RouteEdgeData& edgeData = routeEdgeData[ithHE];
+		if (!edgeData.m_adjEdges.size() && !edgeData.m_adjEndPoints.size())
+		{
+			edgeData.m_isValid = false;
+			continue;
+		}
+
+		if (edgeData.m_adjEdges.size() == 2 && edgeData.m_adjEndPoints.size() == 0)
+		{
+			set<int>::iterator pAdj = edgeData.m_adjEdges.begin();
+			int preEdgeID = *pAdj; pAdj++;
+			int nextEdgeID= *pAdj;
+			RouteEdgeData& preEdge = routeEdgeData[preEdgeID];
+			RouteEdgeData& nextEdge = routeEdgeData[nextEdgeID];
+
+			float preDSq = (preEdge.m_originalPoint - edgeData.m_originalPoint).lengthSq();
+			float nextDSq = (nextEdge.m_originalPoint - edgeData.m_originalPoint).lengthSq();
+
+			HalfedgeHandle preHdl(preEdgeID), nextHdl(nextEdgeID);
+			Point prePnt0 = m_mesh.point(m_mesh.from_vertex_handle(preHdl));
+			Point prePnt1 = m_mesh.point(m_mesh.to_vertex_handle(preHdl));
+			Point nextPnt0 = m_mesh.point(m_mesh.from_vertex_handle(nextHdl));
+			Point nextPnt1 = m_mesh.point(m_mesh.to_vertex_handle(nextHdl));
+			Point preDir   = (prePnt1 - prePnt0).normalize();
+			Point nextDir  = (nextPnt1 - nextPnt0).normalize();
+			double dotProduct = preDir[0]*nextDir[0] + preDir[1]*nextDir[1];
+
+			if (abs(dotProduct) > 0.9 ||
+				min(preDSq, nextDSq) < (m_minContourRadius*0.5+m_maxContourRadius*0.5))
+			{
+				edgeData.m_isValid = false;
+				preEdge.m_adjEdges.erase(ithHE);
+				nextEdge.m_adjEdges.erase(ithHE);
+				preEdge.m_adjEdges.insert(nextEdgeID);
+				nextEdge.m_adjEdges.insert(preEdgeID);
+				continue;
+			}
+		}
+		edgeData.m_isValid = true;
+	}
+
 	// smooth routes
 	const float smoothWeight = 0.5;
-	for (int ithIter = 0; ithIter < 50; ++ithIter)
+	for (int ithIter = 0; ithIter < 20; ++ithIter)
 	{
 		for (int ithHalfEdge = 0; ithHalfEdge < routeEdgeData.size(); ++ithHalfEdge)
 		{
 			RouteEdgeData& edgeData = routeEdgeData[ithHalfEdge];
+			if (!edgeData.m_isValid)
+			{
+				continue;
+			}
 
-			const float oriWeight = 0.03;
+			const float oriWeight = 0.01;
 			VtxPoint avg = edgeData.m_originalPoint * oriWeight;
 			float totWeight = oriWeight;
 			for (set<int>::iterator pN = edgeData.m_adjEdges.begin(); pN != edgeData.m_adjEdges.end(); ++pN)
@@ -1644,7 +1697,7 @@ bool DelaunayCore::DelaunayRouter::getRoute( const vector<int>& srcList, const v
 				totWeight++;
 			}
 
-			const float endPointWeight = 0.5;
+			const float endPointWeight = 0.15;
 			for (int i = 0; i < edgeData.m_adjEndPoints.size(); ++i)
 			{
 				avg = avg + edgeData.m_adjEndPoints[i] * endPointWeight;
@@ -1675,7 +1728,10 @@ bool DelaunayCore::DelaunayRouter::getRoute( const vector<int>& srcList, const v
 		for (int ithEdge = 0; ithEdge < data.m_handleIDs.size(); ++ithEdge)
 		{
 			int edgeID = data.m_handleIDs[ithEdge];
-			resultRoute.push_back(routeEdgeData[edgeID].m_boundPoint);
+			if (routeEdgeData[edgeID].m_isValid)
+			{
+				resultRoute.push_back(routeEdgeData[edgeID].m_boundPoint);
+			}
 		}
 		//resultRoute.push_back(data.m_tarNorPnt);
 		resultRoute.push_back(data.m_tarPnt);

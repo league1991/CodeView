@@ -124,7 +124,7 @@ QSet<QString>& CodeAtlas::WordExtractor::getUselessWords()
 			<<"delete"	<<"goto"	<<"reinterpret"	<<"try"
 
 			// addtional words
-			<<"string"  <<"unnamed";
+			<<"string"  <<"unnamed" <<"get"     << "set";
 	}
 	return m_uselessWords;
 }

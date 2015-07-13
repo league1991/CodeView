@@ -22,6 +22,7 @@ void CodeAtlas::MainUI::buildConnections()
 	connect(m_ui.actionShowVariables, SIGNAL(toggled(bool)), this, SLOT(variableCheck(bool)));
 	connect(m_ui.actionShowNames, SIGNAL(toggled(bool)), this, SLOT(nameCheck(bool)));
 	connect(m_ui.actionShowWordCloud, SIGNAL(toggled(bool)), this, SLOT(wordCloudCheck(bool)));
+	connect(m_ui.actionShowModuleCluster, SIGNAL(toggled(bool)), this, SLOT(moduleClusterCheck(bool)));
 }
 
 void CodeAtlas::MainUI::resetDB()
@@ -73,4 +74,9 @@ void CodeAtlas::MainUI::nameCheck( bool checked )
 {
 	getView()->setDrawNames(checked);
 	getView()->update();
+}
+
+void CodeAtlas::MainUI::moduleClusterCheck( bool checked )
+{
+	getView()->showModuleCluster() = checked;
 }

@@ -21,4 +21,24 @@ public:
 		r = max(min(r, 1.f), 0.f);
 		return dy  * r + p0.y();
 	}
+
+	// °ÑEigen¾ØÕóÐ´µ½×Ö·û´®
+	template<class MatrixType>
+	static std::string matToString(const MatrixType& mat, const char* name)
+	{
+		std::string str;
+		str += (string(name) + "=[\n");
+		char digitStr[50];
+		for (int ithRow = 0; ithRow < mat.rows(); ++ithRow)
+		{
+			for (int ithCol = 0; ithCol < mat.cols(); ++ithCol)
+			{
+				sprintf(digitStr, "%lf ", mat.coeff(ithRow, ithCol));
+				str += digitStr;
+			}
+			str += "\n";
+		}
+		str += "];\n";
+		return str;
+	}
 };

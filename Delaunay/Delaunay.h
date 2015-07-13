@@ -65,6 +65,8 @@ struct VtxPoint
 		X /= (norm + 1e-10);
 		Y /= (norm + 1e-10);
 	}
+	REAL	 length()const{return sqrt(X*X+Y*Y);}
+	REAL	 lengthSq()const{return (X*X+Y*Y);}
 	static bool computeNormal( const VtxPoint& prevPnt, const VtxPoint& thisPnt, const VtxPoint& nextPnt, VtxPoint& normal )
 	{
 		VtxPoint dPrev = thisPnt - prevPnt;

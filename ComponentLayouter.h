@@ -9,6 +9,7 @@ namespace CodeAtlas
 class ComponentLayouter:public Layouter
 {
 public:
+	ComponentLayouter():m_graphSparseFactor(1.2f), m_wordSparseFactor(0.8f){}
 	void			setNodes(const QList<SymbolNode::Ptr>& nodeList, const SymbolNode::Ptr& parent = SymbolNode::Ptr());
 
 	// compute and set children's 2D position
@@ -58,11 +59,11 @@ private:
 	// then place components
 	// for each child, the final position is given by adding component position and its local position in component
 	// compute child's local 2D position in each component
-	static void			layoutByGraph( QVector<Component>& compInfo );
+	void			layoutByGraph( QVector<Component>& compInfo );
 	// compute each component's 2D position
-	static void			layoutByWord(QVector<Component>& compInfo, float& finalRadius);
+	void			layoutByWord(QVector<Component>& compInfo, float& finalRadius);
 
-	static void			orthoGraphLayout(
+	void			orthoGraphLayout(
 		const SparseMatrix& veIncidenceMat, 
 		const VectorXf& rVec, 
 		MatrixXf& finalPos2D, 
@@ -70,6 +71,9 @@ private:
 		QList<MatrixXf>& edgeList);
 
 	TrivalLayouter m_trivalLayouter;
+
+	float				m_graphSparseFactor;
+	float				m_wordSparseFactor;
 };
 
 }

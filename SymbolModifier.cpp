@@ -32,9 +32,16 @@ void CodeAtlas::WordCollector::collectWords()
 			if (!pChildAttr)
 				continue;
 			pAttr->unite(*pChildAttr);
+/*
+			if (pNode->getSymInfo().isClass() && pChild.value()->getSymInfo().isFunction())
+			{
+				pAttr->mergeNameWordWeightMap(pChildAttr->getNameWordWeightMap());
+			}
+			*/
 		}
 		pAttr->computeStatistics();
 	}
+	//m_tree->print(SymbolInfo::Folder, SymbolNodeAttr::ATTR_SYMWORD);
 	/*
 	const QSet<SymbolNode::Ptr>& dirtyProj = m_tree->getDirtyProject();
 	for (QSet<SymbolNode::Ptr>::ConstIterator pProj = dirtyProj.constBegin();
@@ -276,10 +283,11 @@ void CodeAtlas::SymbolModifier::setBuilder( SymbolTreeBuilder* builder )
 
 void CodeAtlas::GeneralDependBuilder::buildDependPath()
 {
-	m_dependPath.clear();
-	//QList<DBDependData>& dpData = m_builder->getDependData();
 	QList<DBDependData>		   dpData;
 	buildDependData(dpData);
+
+	QList<DependPath>& dependPath = getDependPath();
+	dependPath.clear();
 	for (int i = 0; i < dpData.size(); ++i)
 	{
 		DBDependData& dp = dpData[i];
@@ -288,7 +296,7 @@ void CodeAtlas::GeneralDependBuilder::buildDependPath()
 			!m_builder->getSymbolPath(dp.getTar(), tarPath))
 			continue;
 
-		m_dependPath.push_back(DependPath(srcPath, tarPath));
+		dependPath.push_back(DependPath(srcPath, tarPath, dp.getType()));
 	}
 }
 
@@ -299,11 +307,12 @@ bool CodeAtlas::GeneralDependBuilder::buildDependData(QList<DBDependData>& depen
 	for (SymbolNode::Ptr node; node = *it; ++it)
 	{
 		QList<UnderstandHandle> dependList;
+		QList<unsigned> refTypeList;
 		const UnderstandHandle& hdl = node->getDBHandle();
-		m_builder->getDatabase()->findDepends(hdl, dependList);
+		m_builder->getDatabase()->findDepends(hdl, dependList, refTypeList);
 		for (int i = 0; i < dependList.size(); ++i)
 		{
-			dependData.push_back(DBDependData(hdl, dependList[i]));
+			dependData.push_back(DBDependData(hdl, dependList[i], refTypeList[i]));
 		}
 	}
 	return true;
@@ -314,9 +323,10 @@ void CodeAtlas::GeneralDependBuilder::modifyTree()
 {
 	buildDependPath();
 
+	QList<DependPath>& dependPath = getDependPath();
 	SymbolPath path;
 	QList<int> dependList;
-	for (int i = 0; i < m_dependPath.size(); ++i)
+	for (int i = 0; i < dependPath.size(); ++i)
 	{
 		dependList.append(i);
 	}
@@ -325,12 +335,13 @@ void CodeAtlas::GeneralDependBuilder::modifyTree()
 
 void CodeAtlas::GeneralDependBuilder::clearCache()
 {
-	m_dependPath.clear();
+	getDependPath().clear();
 }
 
 void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, SymbolPath& nodePath, QList<int>& dependIDList )
 {
 	int depth = nodePath.getSymbolCount();
+	QList<DependPath>& dependPathList = getDependPath();
 
 	QHash<SymbolInfo, int> childIDMap;
 	QList<SymbolNode::Ptr> childList;
@@ -345,11 +356,16 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 	}
 
 	// collect depends
-	QHash<Pair, int> edgeMap;
+	struct EdgeAttribute
+	{
+		int      m_nEdge;
+		unsigned m_flag;
+	};
+	QHash<Pair, EdgeAttribute> edgeMap;
 	for (int i = 0; i < dependIDList.size(); ++i)
 	{
 		int id = dependIDList[i];
-		DependPath& dependPath = m_dependPath[id];
+		DependPath& dependPath = dependPathList[id];
 		SymbolPath& srcPath = dependPath.m_src;
 		SymbolPath& tarPath = dependPath.m_tar;
 
@@ -365,23 +381,33 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 			continue;
 
 		Pair idPair(pSrc.value(), pTar.value());
-		QHash<Pair, int>::iterator pEdge = edgeMap.find(idPair);
+		QHash<Pair, EdgeAttribute>::iterator pEdge = edgeMap.find(idPair);
 		if (pEdge == edgeMap.end())
-			edgeMap[idPair] = 1;
+		{
+			EdgeAttribute ea;
+			ea.m_nEdge = 1;
+			ea.m_flag  = dependPath.m_type;
+			edgeMap[idPair] = ea;
+		}
 		else
-			pEdge.value()++;
+		{
+			EdgeAttribute& ea = pEdge.value();
+			ea.m_nEdge++;
+			ea.m_flag |= dependPath.m_type;
+		}
 	}
 
 	std::vector<Triplet<double>> tripletArray;
 	vector<double>		 edgeWeightArray;
 	QList<FuzzyDependAttr::DependPair> dependPairList;
-	for (QHash<Pair, int>::iterator pPair = edgeMap.begin();
+	for (QHash<Pair, EdgeAttribute>::iterator pPair = edgeMap.begin();
 		pPair != edgeMap.end(); ++pPair)
 	{
 		int src = pPair.key().m_src;
 		int tar = pPair.key().m_tar;
 
-		int val = pPair.value();
+		int val = pPair.value().m_nEdge;
+		unsigned flag = pPair.value().m_flag;
 		int nEdge= tripletArray.size()/2;
 
 		tripletArray.push_back(Eigen::Triplet<double>(src, nEdge ,1.0));
@@ -394,6 +420,7 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 		SymbolEdge::Ptr pEdge = SymbolTree::getOrAddEdge(srcNode, tarNode, SymbolEdge::EDGE_FUZZY_DEPEND);
 		pEdge->clear();
 		pEdge->strength() = val;
+		pEdge->flag() = flag;
 
 		dependPairList.push_back(FuzzyDependAttr::DependPair(srcNode, tarNode, val));
 	}
@@ -416,6 +443,17 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 	}
 	delete[] isNonVar;
 
+	// analysis module 
+	CutModularizer cm(0.8);
+	cm.addNodes(childList);
+	cm.setDependency(vtxEdgeMat, edgeWeightVec);
+	cm.compute();
+	for (int i = 0; i < childList.size(); ++i)
+	{
+		UIElementAttr::Ptr uiAttr = childList[i]->getOrAddAttr<UIElementAttr>();
+		uiAttr->clusterID() = cm.getComponent(i);
+	}
+
 	// get child
 	for (SymbolNode::ChildIterator pChild = node->childBegin();
 		pChild != node->childEnd(); ++pChild)
@@ -427,7 +465,7 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 		for (int ithDepend = 0; ithDepend < dependIDList.size(); ++ithDepend)
 		{
 			int id = dependIDList[ithDepend];
-			DependPath& dependPath = m_dependPath[id];
+			DependPath& dependPath = dependPathList[id];
 			const SymbolInfo* srcInfo = dependPath.m_src.getSymbol(depth);
 			const SymbolInfo* tarInfo = dependPath.m_tar.getSymbol(depth);
 			if (!srcInfo || !tarInfo)
@@ -443,5 +481,84 @@ void CodeAtlas::GeneralDependBuilder::buildNodeDepend( SymbolNode::Ptr node, Sym
 		}
 		buildNodeDepend(pChild.value(), nodePath, childDependIDList);
 		nodePath.removeChildSymbol();
+	}
+}
+
+QList<GeneralDependBuilder::DependPath>& CodeAtlas::GeneralDependBuilder::getDependPath()
+{
+	DependRawDataAttr::Ptr depRaw = m_tree->getRoot()->getOrAddAttr<DependRawDataAttr>();
+	return depRaw->getDependPath();
+}
+
+void CodeAtlas::Modulizer::randomModularize()
+{
+	// collect global symbols
+	typedef QHash<SymbolPath, int> PathMap;
+	PathMap pathMap;
+	SmartDepthIterator it(m_tree->getRoot(), SmartDepthIterator::PREORDER, SymbolInfo::All, SymbolInfo::All&~SymbolInfo::Block);
+	for (SymbolNode::Ptr pNode; pNode = *it; ++it)
+	{
+		SymbolInfo info = pNode->getSymInfo();
+		if (!info.isTopLevel())
+			continue;
+
+		int pathCount = pathMap.size();
+		pathMap[pNode->getSymPath()] = pathCount;
+	}
+
+	RandomWalkClusterer randClusterer(1000,1000000);
+	randClusterer.setVtxCount(pathMap.size());
+	DependRawDataAttr::Ptr depAttr = m_tree->getRoot()->getAttr<DependRawDataAttr>();
+
+	typedef DependRawDataAttr::DependPath DP;
+	QList<DP>& dpList = depAttr->getDependPath();
+	for (int i = 0; i < dpList.size(); ++i)
+	{
+		DP& dp = dpList[i];
+		PathMap::Iterator pSrc = pathMap.find(dp.m_src.getTopLevelItemPath());
+		PathMap::Iterator pTar = pathMap.find(dp.m_tar.getTopLevelItemPath());
+
+		if (pSrc == pathMap.end() || pTar == pathMap.end())
+		{
+			continue;
+		}
+
+		int srcID = pSrc.value();
+		int tarID = pTar.value();
+		if (srcID == tarID)
+		{
+			continue;
+		}
+		float w=0.5;
+// 		if (dp.m_type & Ref_Call)
+// 		{
+// 			w = 1;
+// 		}
+// 		else if (dp.m_type & Ref_Base)
+// 		{
+// 			w = 5;
+// 		}
+		if (dp.m_type & (Ref_Use|Ref_Modify))
+		{
+			w = 0.5;
+		}
+		else
+		{
+			continue;
+		}
+
+		randClusterer.addUndirectedEdge(srcID, tarID, w);
+	}
+
+	randClusterer.compute();
+
+	for (PathMap::Iterator pP = pathMap.begin(); pP != pathMap.end(); ++pP)
+	{
+		SymbolNode::Ptr node = m_tree->findItem(pP.key());
+		int clusterID = randClusterer.getClusterID(pP.value());
+		qDebug() << node->getSymInfo().name() << " \t cID:" << clusterID << endl;
+
+		UIElementAttr::Ptr uiAttr = node->getOrAddAttr<UIElementAttr>();
+		uiAttr->clusterID() = clusterID;
 	}
 }

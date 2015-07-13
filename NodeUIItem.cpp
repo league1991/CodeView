@@ -66,7 +66,8 @@ void NodeUIItem::buildUI()
 		m_name = info.name();
 		m_type = info.type();
 		SymbolPath path = node->getSymPath();
-		setToolTip(path.toString(false, false));
+		//setToolTip(path.toString(false, false));
+		setToolTip(info.toString(false, true));
 		setZValue(s_nodeBaseZValue);
 	}
 }
@@ -97,7 +98,7 @@ NodeUIItem::Ptr NodeUIItem::creator( const SymbolNode::Ptr& node, NodeUIItem* pa
 	
 	if (type & SymbolInfo::Project)
 		ui = NodeUIItem::Ptr(new ProjectUIItem(node.toWeakRef(), parent));
-	else if (type & (SymbolInfo::Class|SymbolInfo::Namespace))
+	else if (type & (SymbolInfo::ClassStruct|SymbolInfo::Namespace|SymbolInfo::Folder))
 		ui = NodeUIItem::Ptr(new ClassUIItem(node.toWeakRef(), parent));
 	else if (type & SymbolInfo::Variable)
 		ui = NodeUIItem::Ptr(new VariableUIItem(node.toWeakRef(), parent));
@@ -261,7 +262,7 @@ void NodeUIItem::initUIItemModel()
 	pTextModel->setFont(font, UI_SELECTED);
 
 	m_uiItemModelList.append(pCircleModel);
-	m_uiItemModelList.append(pTextModel);
+	//m_uiItemModelList.append(pTextModel);
 }
 
 void NodeUIItem::getModeThreshold( float& minNormal, float& maxNormal, float& minFrozen, float& maxFrozen )

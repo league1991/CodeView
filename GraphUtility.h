@@ -95,6 +95,7 @@ public:
 	// isMaxTree						if set to true, use the maximum spanning tree, otherwise used the minimum one
 	static bool computePairDistInTree(	const SparseMatrix& vtxEdgeMatrix, Eigen::MatrixXf& distMat, const VectorXf* pEdgeWeight = NULL, bool isMaxTree = true);
 	
+ 	static bool saveToGexf(const char* fileName, const SparseMatrix& vtxEdgeMatrix, MatrixXd* position = NULL);
 	static const int			s_defaultBaseLevel	= 1;
 	static const int			s_srcTag			= 1;
 	static const int			s_tarTag			= -1;
@@ -108,7 +109,7 @@ private:
 		}
 		return parent[node];
 	}
-	struct Component 
+	struct Component
 	{
 		Component():m_nVtx(0), m_nEdge(0){}
 		std::vector<Triplet>	m_triVec;

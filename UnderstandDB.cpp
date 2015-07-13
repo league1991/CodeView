@@ -207,7 +207,46 @@ CodeAtlas::SymbolInfo CodeAtlas::UnderstandDB::getSymbolInfo( const UnderstandHa
 	return SymbolInfo(name, type, eleType);
 }
 
-bool CodeAtlas::UnderstandDB::findChildren( const UnderstandHandle& handle, QList<UnderstandHandle>& children )
+bool CodeAtlas::UnderstandDB::findFilePaths(const UnderstandHandle& handle, QList<QString>& paths)
+{
+	UdbEntity entity = getEntity(handle);
+	if (!entity)
+		return false;
+
+	//printf ("[%s] %s\n",udbEntityTypetext(entity), udbEntityNameLong(entity));
+	paths.clear();
+
+	//printf ("entity name: %s\n",udbEntityNameLong ( entity));
+
+	UdbReference* refs = NULL, *filteredRefs = NULL;
+	int nRefs = 0, nFilteredRefs = 0;
+	udbListReference(entity, &refs, &nRefs);
+	udbListReferenceFilter(refs, udbKindParse("definein"), NULL, 0, &filteredRefs, &nFilteredRefs);
+	if (!filteredRefs)
+	{
+		udbListReferenceFilter(refs, udbKindParse("definein, declarein"), NULL, 0, &filteredRefs, &nFilteredRefs);
+	}
+	for (int j = 0; j < nFilteredRefs; ++j)
+	{
+		
+		/*printf ("      %s [%s file: %s (%d)] \n",
+			//udbEntityNameLong ( entity),
+			udbKindLongname ( udbReferenceKind (filteredRefs[j])),
+			udbEntityNameLong ( udbReferenceEntity (filteredRefs[j])),
+			udbEntityNameShort ( udbReferenceFile (filteredRefs[j])),
+			udbReferenceLine (filteredRefs[j]) );*/
+
+		UdbEntity refEntity = udbReferenceEntity(filteredRefs[j]);
+		paths.append(udbEntityNameLong(udbReferenceFile (filteredRefs[j])));
+	}
+	if (nFilteredRefs && filteredRefs)
+	{
+		udbListReferenceFree(filteredRefs);
+	}
+	udbListReferenceFree(refs);
+	return true;
+}
+bool CodeAtlas::UnderstandDB::findChildren( const UnderstandHandle& handle, QList<UnderstandHandle>& children, const char* childrenKind )
 {
 	UdbEntity entity = getEntity(handle);
 	if (!entity)
@@ -218,7 +257,7 @@ bool CodeAtlas::UnderstandDB::findChildren( const UnderstandHandle& handle, QLis
 	UdbReference* refs = NULL, *filteredRefs = NULL;
 	int nRefs = 0, nFilteredRefs = 0;
 	udbListReference(entity, &refs, &nRefs);
-	udbListReferenceFilter(refs, udbKindParse("declare, define"), udbKindParse("~file"), 1, &filteredRefs, &nFilteredRefs);
+	udbListReferenceFilter(refs, udbKindParse("declare, define"), udbKindParse(childrenKind), 1, &filteredRefs, &nFilteredRefs);
 	for (int j = 0; j < nFilteredRefs; ++j)
 	{
 		/*
@@ -240,26 +279,68 @@ bool CodeAtlas::UnderstandDB::findChildren( const UnderstandHandle& handle, QLis
 	return true;
 }
 
-bool CodeAtlas::UnderstandDB::findDepends( const UnderstandHandle& src, QList<UnderstandHandle>& tarList )
-{
+bool CodeAtlas::UnderstandDB::findDepends( const UnderstandHandle& src, QList<UnderstandHandle>& tarList, QList<unsigned>& typeList)
+{ 
+	tarList.clear();
+	typeList.clear();
+
+	static QSet<QString> nameSet;
+
 	UdbEntity srcEntity = getEntity(src);
 	UdbReference*refs = NULL, *filteredRefs = NULL;
 	int nRef = 0, nFilteredRef = 0;
 
 	udbListReference(srcEntity, &refs, &nRef);
 	udbListReferenceFilter(refs, 
-		udbKindParse("base, call, friend, modify, override, set, use"), udbKindParse("~file"), 1, &filteredRefs, &nFilteredRef);
+		udbKindParse("call, base, exception, friend, modify, override, set, use"), udbKindParse("~file"), 0, &filteredRefs, &nFilteredRef);
 	for (int i = 0; i< nFilteredRef; ++i)
 	{
 		UdbEntity tar = udbReferenceEntity(filteredRefs[i]);
 		char* uniqueName = udbEntityNameUnique(tar);
 		tarList.push_back(UnderstandHandle(uniqueName));
+
+		unsigned type = getRefType(filteredRefs[i]);
+
+		typeList.push_back(type);
+// 		printf("src: %s\n", udbEntityNameLong(srcEntity));
+// 		printf("tar: %s\n", udbEntityNameLong(tar));
+// 		printf("type: %s\n\n", name);
+// 		nameSet.insert(QString(name));
 	}
 	if (nFilteredRef)
 		udbListReferenceFree(filteredRefs);
 	if (nRef)
 		udbListReferenceFree(refs);
 	return true;
+}
+
+unsigned CodeAtlas::UnderstandDB::getRefType( const UdbReference& refs )
+{
+	UdbKind kind = udbReferenceKind(refs);
+	char* refName = udbKindLongname(kind);
+	char* r;
+	unsigned type=0;
+	if (r = strstr(refName, "Base"))
+		type |= Ref_Base;
+	if (r = strstr(refName, "Call"))
+		type |= Ref_Call;
+	if (r = strstr(refName, "Exception"))
+		type |= Ref_Exception;
+	if (r = strstr(refName, "Friend"))
+		type |= Ref_Friend;
+	if (r = strstr(refName, "Modify"))
+		type |= Ref_Modify;
+	if (r = strstr(refName, "Override"))
+		type |= Ref_Override;
+	if (r = strstr(refName, "Set"))
+		type |= Ref_Set;
+	if (r = strstr(refName, "Typed"))
+		type |= Ref_Type;
+	if (r = strstr(refName, "Use"))
+		type |= Ref_Use;
+	if(type == 0)
+		type =  Ref_Unknown;
+	return type;
 }
 
 CodeAtlas::UnderstandHandle::UnderstandHandle( char* uniqueName )

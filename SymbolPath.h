@@ -65,6 +65,7 @@ namespace CodeAtlas
 			Union			= (0x1 << 21),
 			File			= (0x1 << 22),
 			Parameter       = (0x1 << 23),
+			Folder          = (0x1 << 24),
 
 			Slot					=   SlotPublic   | SlotProtected | SlotPrivate,
 			SignalSlot				=   Signal       | Slot,
@@ -72,6 +73,7 @@ namespace CodeAtlas
 			FunctionSignalSlot		=	Function     | SignalSlot,
 			FunctionSlot			=   Function     | Signal,
 			Variable	            =   VarPublic	 | VarProtected  | VarPrivate,
+			ClassStruct				=   Class		 | Struct,
 			NonpublicMember			=   VarProtected | VarPrivate    | FuncProtected | FuncPrivate,
 			PublicMember			=   FuncPublic   | VarPublic     | SlotPublic,
 			ProtectedMember			=   FuncProtected| VarProtected  | SlotProtected,
@@ -84,14 +86,19 @@ namespace CodeAtlas
 			MatchType   = 1<<1,
 			MatchEither = ((1<<1) | 1)
 		};
+		enum Flag{
+			None = 0,
+			TopLevel = (0x1 << 0),
+		};
 
 		SymbolInfo();
-		SymbolInfo(const QString &name, const QString &type, ElementType symInfoType = SymbolInfo::Unknown);
+		SymbolInfo(const QString &name, const QString &type, ElementType symInfoType = SymbolInfo::Unknown, unsigned flag = 0);
 
 
 		inline const QString &name() const { return m_name; }
 		inline const QString &type() const { return m_type; }
 		inline ElementType    elementType()     const { return m_elementType; }
+		inline unsigned		  flag()const{return m_flag;}
 		const QString &		  elementTypeName() const;
 		bool				  matchNameOrType( const QString& str, MatchCase matchCase = MatchEither)const;
 
@@ -103,6 +110,7 @@ namespace CodeAtlas
 
 		inline bool		      isEnum()const{return m_elementType == SymbolInfo::Enum;}
 		inline bool           isClass()const{return m_elementType == SymbolInfo::Class;}
+		inline bool			  isClassOrStruct()const{return m_elementType & SymbolInfo::ClassStruct;}
 		inline bool           isFunction()const
 		{
 			return  m_elementType == SymbolInfo::FuncPrivate    ||	m_elementType == SymbolInfo::FuncProtected  ||
@@ -117,6 +125,8 @@ namespace CodeAtlas
 		}
 		inline bool           isProject()const{return m_elementType == SymbolInfo::Project;}
 		inline bool           isNamespace()const{return m_elementType == SymbolInfo::Namespace;}
+		inline bool			  isTopLevel()const{return m_flag & TopLevel;}
+		void				  setTopLevel(bool isTop);
 
 
 		QString               toString(bool showType = false, bool showElementType = false)const;
@@ -130,12 +140,15 @@ namespace CodeAtlas
 		// primary type
 		bool				  isPrimaryType(){return isPrimaryType(m_type);}
 		static bool			  isPrimaryType(const QString& type);
+
 	private:
 		static int			  elementTypeIdx(ElementType type);
 		static void           initBasicTypeWordSet();
 		static void			  initPrimaryTypeWordSet();
+		void				  setFlag(bool isSet, unsigned flag);
 
 		ElementType           m_elementType; //!< icon type
+		unsigned			  m_flag;
 		QString               m_name;        //!< symbol name (e.g. SymbolInformation)
 		QString               m_type;        //!< symbol type (e.g. (int char))
 		uint                  m_hash;        //!< precalculated hash value - to speed up qHash
@@ -184,7 +197,7 @@ namespace CodeAtlas
 		// 1.class
 		// 2.function which has no parent class
 		void                     getTopLevelItemPath(SymbolPath& path)const;
-
+		SymbolPath				 getTopLevelItemPath() const;
 		SymbolPath&	             addChildSymbol( const SymbolInfo& symbol );
 		SymbolPath&	             addChildPath(const SymbolPath& parentPath);
 		SymbolPath&	             addParentSymbol(const SymbolInfo& symbol);

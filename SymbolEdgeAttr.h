@@ -13,7 +13,7 @@ namespace CodeAtlas
 		typedef QSharedPointer<SymbolEdgeAttr> Ptr;
 		enum AttrType
 		{
-			ATTR_UIELEMENT  = 0
+			ATTR_UIELEMENT  = 0,
 		};
 		virtual ~SymbolEdgeAttr();
 	};

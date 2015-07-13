@@ -214,15 +214,16 @@ m_column(columnNumber)
 
 SymbolInfo::SymbolInfo() :
 m_elementType(Unknown),
-m_hash(0)
+m_hash(0), m_flag(0)
 {
 }
 
 SymbolInfo::SymbolInfo(const QString &valueName, const QString &valueType,
-									 ElementType iconType) :
+									 ElementType iconType, unsigned flag) :
 m_elementType(iconType),
 m_name(valueName),
-m_type(valueType)
+m_type(valueType),
+m_flag(flag)
 {
 	// calculate hash
 	unsigned elementHash = elementTypeIdx(m_elementType);
@@ -251,6 +252,10 @@ bool SymbolInfo::operator<(const SymbolInfo &other) const
 	int otherType= elementTypeIdx(other.m_elementType);
 	if (thisType != otherType)
 		return thisType < otherType;
+	if (m_flag != other.m_flag)
+	{
+		return m_flag < other.m_flag;
+	}
 
 	int cmp = name().compare(other.name(), Qt::CaseInsensitive);
 	if (cmp != 0)
@@ -265,6 +270,10 @@ int SymbolInfo::compare(const SymbolInfo &other) const
 	int otherType= elementTypeIdx(other.m_elementType);
 	if (thisType != otherType)
 		return thisType < otherType ? -1 : 1;
+	if (m_flag != other.m_flag)
+	{
+		return m_flag < other.m_flag ? -1 : 1;
+	}
 
 	int cmp = name().compare(other.name(), Qt::CaseInsensitive);
 	if (cmp != 0)
@@ -440,7 +449,12 @@ SymbolNode::Ptr SymbolNode::addOrFindChild( const SymbolNode::Ptr& parent,const 
 	parent->m_timeStamp = qMax(parent->m_timeStamp, timeStamp);
 	return parent->m_childList[inf];
 }
-
+void SymbolNode::addOrReplaceChild( const SymbolNode::Ptr& parent,const SymbolInfo &inf, const SymbolNode::Ptr& child, unsigned timeStamp)
+{
+	child->m_timeStamp = timeStamp;
+	appendChild(parent, child, inf);
+	parent->m_timeStamp = qMax(parent->m_timeStamp, timeStamp);
+}
 
 /*!
 Returns the amount of children of the tree item.
@@ -808,13 +822,13 @@ QString SymbolInfo::toString( bool showType /*= false*/, bool showElementType /*
 bool SymbolInfo::operator!=( const SymbolInfo& other) const
 {
 	return m_hash != other.m_hash || elementType() != other.elementType() || name() != other.name()
-		|| type() != other.type();
+		|| type() != other.type() || m_flag != other.m_flag;
 }
 
 bool SymbolInfo::operator==( const SymbolInfo &other ) const
 {
 	return m_hash == other.m_hash && elementType() == other.elementType() && name() == other.name()
-		&& type() == other.type();
+		&& type() == other.type() && m_flag == other.m_flag;
 }
 
 
@@ -980,6 +994,7 @@ const SymbolPath SymbolNode::getSymPath() const
 			}
 		}
 		wpParent = pParent->m_parent;
+		curNode = pParent.data();
 	}
 	return path;
 }
@@ -1144,7 +1159,7 @@ void SymbolTree::checkDirtyNodes( unsigned highestCleanStamp )
 void SymbolTree::getGlobalSymbols( const SymbolNode::Ptr& projNode, QList<SymbolNode::Ptr>& globalNodes )
 {
 	SymbolNode::SmartDepthIterator it(projNode, SymbolNode::SmartDepthIterator::PREORDER,
-		SymbolInfo::Class | SymbolInfo::FuncPublic | SymbolInfo::Enum | SymbolInfo::VarPublic,
+		SymbolInfo::ClassStruct | SymbolInfo::FuncPublic | SymbolInfo::Enum | SymbolInfo::VarPublic,
 		SymbolInfo::All & ~(SymbolInfo::NonpublicMember | SymbolInfo::Unknown | SymbolInfo::SignalSlot | SymbolInfo::Block)
 		);
 

@@ -14,12 +14,15 @@ int main(int argc, char** argv)
 	DBManager* db = DBManager::instance();
 	UIManager* ui = UIManager::instance();
 
-	//db->openDB("fem.udb");
-	//db->openDB("paint3d.udb");
-	//db->openDB("CodeView.udb");
-	db->openDB("GeometryProcess.udb");
-	//db->openDB("vega.udb");
-	//db->openDB("qtcreator.udb");
+	//char* fn = "vega.udb";
+	char* fn = "geometryprocess.udb";
+	//char* fn = "vega.udb";
+	//char* fn = "vega.udb";
+
+	char* fileName = argc > 1 ? argv[1] : fn;
+	printf(fileName);
+
+	db->openDB(fileName);
 
 	ui->lockAll();
 	db->parse();

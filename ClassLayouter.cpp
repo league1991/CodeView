@@ -294,7 +294,7 @@ bool CodeAtlas::ClassLayouter::compute()
 
 	if (computeNormally())
 	{
-		if (!computeVisualHull(m_totalRadius * 0.05))
+		if (!computeVisualHull())
 			m_status |= WARNING_NO_VISUAL_HULL;
 	}
 	else

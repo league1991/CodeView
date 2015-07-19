@@ -92,6 +92,7 @@ namespace CodeAtlas
 		const SymbolInfo::ElementType getElementType()const;
 		// get SymbolPath of current node by upstream look-up, expensive operation
 		const SymbolPath	getSymPath()const;
+		const int			getSymPathLength() const;
 		bool				isGlobalSymbol()const;
 
 		// DB access

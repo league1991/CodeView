@@ -30,6 +30,9 @@ public:
 	void				setLodInterLimit(float minLod, float maxLod){m_minLod = minLod; m_maxLod = maxLod;}
 	void				clear();
 
+	void				addSeaRegion(const QPolygon& poly, int depth);
+
+	void				clearSeaRegion(){m_regionList.clear();}
 	void				render( const QList<QRect>& rectArray, 
 								const QList<float>& entityRadiusArray, 
 								const QVector<float>& valArray, 
@@ -56,6 +59,15 @@ public:
 		return res;
 	}
 private:
+	struct SeaRegion
+	{
+		int m_level;
+		QPolygon m_polys;
+
+		SeaRegion(const QPolygon& poly, int level):m_polys(poly), m_level(level){}
+		bool operator<(const SeaRegion& r)const{return m_level < r.m_level;}
+	};
+
 	void				clearInternalBuffer();
 	void				initInternalBuffer(int w, int h);
 	void				initFinalBuffer(int w, int h);
@@ -72,6 +84,10 @@ private:
 	void				computeShadeBuffer();
 	// compute territory buffer
 	void				computeTerritoryAlpha();
+	// compute sea region
+
+	void				computeSeaRegion(QImage&img);
+
 	// compute final height map
 	void				computeFinalMap();
 
@@ -131,6 +147,11 @@ private:
 		*resChar = (*c0Char * one_w + *c1Char * w) >> 8;  c0Char++; c1Char++; resChar++;
 		*resChar = (*c0Char * one_w + *c1Char * w) >> 8;
 	}
+
+	static void initSeaLevelColor();
+	static QColor& getSeaLevelColor(int level);
+	
+
 	// final image size
 	QImage		m_finalImg;
 	int			m_width;
@@ -164,6 +185,11 @@ private:
 	RenderMode	m_renderMode;
 	bool		m_isShaded;
 	float		m_minLod, m_maxLod;
+
+
+	// sea level members
+	QList<SeaRegion> m_regionList;
+	static QList<QColor> m_seaLevelColor;
 };
 
 }

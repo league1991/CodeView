@@ -571,7 +571,7 @@ void MDSPostProcesser::init2DPnt()
 
 	//m_pcaPos = m_oriPos;
 	// scale data points according to avgDist and avgSize
-	m_radiusWithPadding = m_radius * (m_radiusPaddingRatio + 1) + Eigen::VectorXd::Constant(m_radius.size(), m_minPadding);
+	m_radiusWithPadding = m_radius * (m_radiusPaddingRatio + 1) + Eigen::VectorXd::Constant(m_radius.size(), m_minPadding*0.5);
 
 // 	double avgDist = computeAvgDist(m_pcaPos);
 // 	double avgSize = m_radius.sum() / m_radius.size();
@@ -591,7 +591,7 @@ double MDSPostProcesser::computeScaleRate( const Eigen::MatrixXd& datPnt , const
 	if (datPnt.rows() <= 1 || datPnt.cols() != 2)
 		return 1.0;
 
-	double dSum = 0, rSum = 0;
+	double dSum = 0, rSum = 0, ratioSum = 0;
 	const int nPnt = datPnt.rows();
 	for (int ithPnt = 0; ithPnt < nPnt; ++ithPnt)
 	{
@@ -614,10 +614,13 @@ double MDSPostProcesser::computeScaleRate( const Eigen::MatrixXd& datPnt , const
 		}
 		dSum += minD;
 		rSum += minR;
+		ratioSum += minDRatio;
 	}
 	double avgD = dSum / nPnt, avgR = rSum / nPnt;
 	if (avgD < FLT_EPSILON)
 		return 1.f;
+	// 1/n  * ¦²(s*di)/(ri+rj) = sparseFactor
+	//return nPnt * (m_sparseFactor) / ratioSum;
 	return avgR *  m_sparseFactor / avgD;
 }
 
@@ -723,7 +726,7 @@ void MDSPostProcesser::forceDirectedLayout()
 		deltaStepFactor *= 2.0;
 
 		double avgOverlap = totalOverlap / nDat;
-		if (avgOverlap < avgSize * 1e-4 && avgOverlap > m_minPadding)
+		if (avgOverlap < avgSize * 1e-4)
 			break;
 	}
 

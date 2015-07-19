@@ -14,11 +14,29 @@ void LodMerger::addItem( const QPoint& center, float radius )
 {
 	Item item;
 	item.m_center = QPointF(center.x(), center.y());
-	item.m_radius = radius;
 	float halfDim = radius / sqrt(2.f);
 	item.m_rect = QRectF(	QPointF(center.x() - halfDim, center.y() - halfDim),
 		QPointF(center.x() + halfDim, center.y() + halfDim));
 
+	m_itemList.push_back(item);
+}
+
+void LodMerger::addItem( const QPointF& center, float radius )
+{
+	Item item;
+	item.m_center = QPointF(center.x(), center.y());
+	float halfDim = radius / sqrt(2.f);
+	item.m_rect = QRectF(	QPointF(center.x() - halfDim, center.y() - halfDim),
+		QPointF(center.x() + halfDim, center.y() + halfDim));
+
+	m_itemList.push_back(item);
+}
+
+void LodMerger::addItem(const QRectF& rect)
+{
+	Item item;
+	item.m_rect = rect;
+	item.m_center = rect.center();
 	m_itemList.push_back(item);
 }
 
@@ -70,24 +88,27 @@ void CodeAtlas::LodMerger::computeCluster()
 		for (pi = idxSet.begin(); pi != idxSet.end(); )
 		{
 			bool isValid = false;
-			for (pj = idxSet.begin(); pj != idxSet.end(); ++pj)
+			if (!isEnoughSize(itemTree[*pi].m_rect))
 			{
-				if (pi == pj)
-					continue;
-
-				int idxI = *pi, idxJ = *pj;
-				float cost = costFcn(itemTree[idxI].m_rect, itemTree[idxJ].m_rect);
-				QRectF uniRect = itemTree[idxI].m_rect.united(itemTree[idxJ].m_rect);
-				if (isEnoughSize(uniRect))
-					continue;
-				else
-					isValid = true;
-
-				if (cost < minCost)
+				for (pj = idxSet.begin(); pj != idxSet.end(); ++pj)
 				{
-					minCost = cost;
-					ithItem = idxI;
-					jthItem = idxJ;
+					if (pi == pj)
+						continue;
+
+					int idxI = *pi, idxJ = *pj;
+					float cost = costFcn(itemTree[idxI].m_rect, itemTree[idxJ].m_rect);
+					QRectF uniRect = itemTree[idxI].m_rect.united(itemTree[idxJ].m_rect);
+					if (isEnoughSize(uniRect))
+						continue;
+					else
+						isValid = true;
+
+					if (cost < minCost)
+					{
+						minCost = cost;
+						ithItem = idxI;
+						jthItem = idxJ;
+					}
 				}
 			}
 			if (isValid)
@@ -177,4 +198,19 @@ float CodeAtlas::LodMerger::costFcn( const QRectF& r1, const QRectF& r2 )
 
 	//return abs(dx) + abs(dy);
 	return dx*dx + dy*dy;
+}
+
+void CodeAtlas::LodMerger::addItem( const QList<QRectF>& rectList )
+{
+	for (int i = 0; i < rectList.size(); ++i)
+	{
+		addItem(rectList[i]);
+	}
+}
+
+void CodeAtlas::LodMerger::clearAll()
+{
+	m_itemList.clear();
+	m_clusterIDList.clear();
+	m_clusterList.clear();
 }

@@ -98,12 +98,14 @@ NodeUIItem::Ptr NodeUIItem::creator( const SymbolNode::Ptr& node, NodeUIItem* pa
 	
 	if (type & SymbolInfo::Project)
 		ui = NodeUIItem::Ptr(new ProjectUIItem(node.toWeakRef(), parent));
-	else if (type & (SymbolInfo::ClassStruct|SymbolInfo::Namespace|SymbolInfo::Folder))
+	else if (type & (SymbolInfo::ClassStruct|SymbolInfo::Namespace))
 		ui = NodeUIItem::Ptr(new ClassUIItem(node.toWeakRef(), parent));
 	else if (type & SymbolInfo::Variable)
 		ui = NodeUIItem::Ptr(new VariableUIItem(node.toWeakRef(), parent));
 	else if (type & SymbolInfo::FunctionSignalSlot)
 		ui = NodeUIItem::Ptr(new FunctionUIItem(node.toWeakRef(), parent));
+	else if (type & SymbolInfo::Folder)
+		ui = NodeUIItem::Ptr(new FolderUIItem(node.toWeakRef(), parent));
 	else
 		ui = NodeUIItem::Ptr(new NodeUIItem(node.toWeakRef(), parent));
 	return ui;

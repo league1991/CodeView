@@ -658,6 +658,14 @@
 					>
 				</File>
 				<File
+					RelativePath=".\FolderUIItem.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FolderUIItem.h"
+					>
+				</File>
+				<File
 					RelativePath=".\FunctionUIItem.cpp"
 					>
 				</File>

@@ -94,8 +94,7 @@ void Layouter::mds(const MatrixXd& distMat,
 						   MatrixXf& finalPos2D, 
 						   float& finalRadius,
 						   float  sparseFactor,
-						   float  paddingRatio,
-						   float  minPadding)
+						   float  paddingRatio)
 {
 	if (distMat.rows() <= 0 || distMat.cols() <= 0 || radiusVec.size() <= 0)
 	{
@@ -113,6 +112,7 @@ void Layouter::mds(const MatrixXd& distMat,
 	ClassicalMDSSolver::compute(distMat, pos2D); 
 	
 	VectorXd minPos, maxPos;
+	float minPadding = radiusVec.minCoeff();
 	MDSPostProcesser m_postProcessor(5000, sparseFactor, 1.0, paddingRatio, minPadding);
 	m_postProcessor.set2DPos(pos2D, radiusVec.cast<double>(), &hashID);
 	m_postProcessor.compute();
@@ -144,7 +144,7 @@ void Layouter::laplacianEigMap( const MatrixXd& laplacian, const VectorXf& radiu
 	LaplacianSolver::compute(laplacian, pos2D); 
 
 	VectorXd minPos, maxPos;
-	MDSPostProcesser m_postProcessor(500, 1.0f, 1.0, 1.02, LayoutSetting::s_baseRadius);
+	MDSPostProcesser m_postProcessor(500, 1.0f, 1.0, 1.02, radiusVec.minCoeff());
 	m_postProcessor.setSparseFactor(sparseFactor);
 	m_postProcessor.set2DPos(pos2D, radiusVec.cast<double>(), &hashID);
 	m_postProcessor.compute();
@@ -620,18 +620,21 @@ bool Layouter::computeEdgeRoute(DelaunayCore::DelaunayRouter router)
 }
 
 
-bool CodeAtlas::Layouter::computeVisualHull(float padding)
+bool CodeAtlas::Layouter::computeVisualHull()
 {
 	CHECK_ERRORS_RETURN_BOOL(m_status);
 
 	std::vector<double> pointSetX, pointSetY;
-	float visualHullBuffer = padding;
+	float r0 = LayoutSetting::s_baseRadius;
+	float maxR = m_nodeRadius.maxCoeff();
+	float visualHullBuffer = m_totalRadius * 0.07 + LayoutSetting::s_baseRadius * 6;//(3 * sqrt(maxR / r0)) * r0;
 
 	for (int ithVtx = 0; ithVtx < m_nodePos.rows(); ++ithVtx)
 	{
 		float x = m_nodePos(ithVtx, 0);
 		float y = m_nodePos(ithVtx, 1);
-		float r = m_nodeRadius(ithVtx) * 2.f + visualHullBuffer;
+		float rRatio = sqrt(m_nodeRadius(ithVtx) / LayoutSetting::s_baseRadius);
+		float r = m_nodeRadius(ithVtx) + visualHullBuffer;
 		pointSetX.push_back(x-r);		pointSetY.push_back(y-r);
 		pointSetX.push_back(x-r);		pointSetY.push_back(y+r);
 		pointSetX.push_back(x+r);		pointSetY.push_back(y-r);
@@ -668,16 +671,20 @@ bool CodeAtlas::Layouter::computeVisualHull(float padding)
 	{
 		bs.addPoint(poly[ithPnt]);
 	}
-	bs.computeLine(poly.size() * 2);
+	bs.computeLine(poly.size() * 4);
 	m_visualHull = bs.getCurvePnts().toVector();
 
-	float bound[2] = {0,0};
+	float minB[2] = {FLT_MAX, FLT_MAX};
+	float maxB[2] = {-FLT_MAX, -FLT_MAX};
 	foreach (QPointF p, m_visualHull)
 	{
-		bound[0] = qMax(bound[0], (float)qAbs(p.x()));
-		bound[1] = qMax(bound[1], (float)qAbs(p.y()));
+		minB[0] = qMin(minB[0], (float)p.x());
+		minB[1] = qMin(minB[1], (float)p.y());
+		maxB[0] = qMax(maxB[0], (float)p.x());
+		maxB[1] = qMax(maxB[1], (float)p.y());
 	}
-	m_totalRadius = sqrt(bound[0]*bound[0] + bound[1]*bound[1]);
+	float size[2] = {maxB[0]-minB[0], maxB[1]-minB[1]};
+	m_totalRadius = qMax(size[0], size[1]) * 0.5f;//sqrt(size[0]*size[0] + size[1]*size[1])*0.5f;
 	m_status &= ~WARNING_NO_VISUAL_HULL;
 	return true;
 }
@@ -734,22 +741,22 @@ bool CodeAtlas::Layouter::graphLayout( const SparseMatrix& veMat, const VectorXf
 			pos(v,1) = y;
 		}
 
-		int fid = rand();
-		char buf[20];
-		sprintf(buf, "graph%d.gml", fid);
-		ofstream file(buf);
-		GA.writeGML(file);
-		file.close();
+// 		int fid = rand();
+// 		char buf[20];
+// 		sprintf(buf, "graph%d.gml", fid);
+// 		ofstream file(buf);
+// 		GA.writeGML(file);
+// 		file.close();
 
-		MDSPostProcesser m_postProcessor(5000, sparseFactor, 1.0, 0.1, minRadius * 1);
+		MDSPostProcesser m_postProcessor(5000, sparseFactor, 1.0, 0.01, minRadius);
 		m_postProcessor.set2DPos(pos, radiusVec.cast<double>());
 		m_postProcessor.compute();
 		m_postProcessor.getFinalPos(pos);
 		finalPos2D = pos.cast<float>();
 		finalRadius = m_postProcessor.getFinalRadius();
 
-		sprintf(buf, "graph%d.gexf", fid);
-		GraphUtility::saveToGexf(buf, veMat, &pos);
+		//sprintf(buf, "graph%d.gexf", fid);
+		//GraphUtility::saveToGexf(buf, veMat, &pos);
 	}
 	catch(...)//AlgorithmFailureException e
 	{

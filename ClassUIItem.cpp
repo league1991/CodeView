@@ -61,6 +61,7 @@ void ClassUIItem::paint( QPainter *painter, const QStyleOptionGraphicsItem *opti
 	if (m_lodStatus & (LOD_INVALID|LOD_INVISIBLE))
 		return;
 	//NodeUIItem::paint(painter, option, widget);
+	//painter->drawRect(m_entityRect);
 	float lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(painter->worldTransform());
 	if (m_uiAttr)
 	{

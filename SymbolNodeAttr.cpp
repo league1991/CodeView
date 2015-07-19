@@ -601,3 +601,27 @@ SymbolNodeAttr& CodeAtlas::DependRawDataAttr::copy( const SymbolNodeAttr& s )
 	}
 	return *this;
 }
+
+SymbolNodeAttr& CodeAtlas::FolderAttr::copy( const SymbolNodeAttr& s )
+{
+	if (FolderAttr* pS = castTo<FolderAttr>(s))
+	{
+		m_visualDepth = pS->m_visualDepth;
+	}
+	return *this;
+}
+
+LodAttr::WordCloudList* CodeAtlas::LodAttr::findWordCloudList( float lod )
+{
+	WordCloudList* wcList = NULL;
+	for (QMap<float, WordCloudList>::Iterator pW = m_lodWordCloudMap.begin();
+		pW != m_lodWordCloudMap.end(); ++pW)
+	{
+		if (pW.key() > lod)
+		{
+			return wcList;
+		}
+		wcList = &pW.value();
+	}
+	return wcList;
+}

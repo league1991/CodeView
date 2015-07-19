@@ -281,6 +281,178 @@ void CodeAtlas::SymbolModifier::setBuilder( SymbolTreeBuilder* builder )
 	m_builder = builder;
 }
 
+void CodeAtlas::TopicLODMaker::modifyTree()
+{
+	typedef SymbolWordAttr::WordMap WordMap;
+	QList<WordMap> inputWordList;
+
+	QRectF sceneRect = UIManager::instance()->getScene().sceneRect();
+	float maxRange = max(sceneRect.width(), sceneRect.height());
+	int   standardViewRange = 300;  // 300 * 300 screen
+	float minLod = standardViewRange / maxRange;
+	float avgSize = 0;
+
+	// use tfidf to compute priority
+	LodMerger	   lodMerger;
+	int ithNode = 0;
+	SymbolTree* tree = m_tree;
+	LodAttr::Ptr lodAttr = tree->getRoot()->getOrAddAttr<LodAttr>();
+	QList<SymbolNode::Ptr> nodeList;
+	SmartDepthIterator it(tree->getRoot(), SmartDepthIterator::PREORDER, SymbolInfo::ClassStruct|SymbolInfo::FunctionSignalSlot);
+	for (SymbolNode::Ptr node; node = *it; ++it, ++ithNode)
+	{
+		SymbolInfo info = node->getSymInfo();
+		if (info.elementType() & SymbolInfo::Folder)
+			continue;
+
+		SymbolWordAttr::Ptr wordAttr = node->getAttr<SymbolWordAttr>();
+		if (wordAttr.isNull())continue;
+		const WordMap& wordWeightMap = wordAttr->getNameWordWeightMap();
+		if (!wordWeightMap.size())continue;
+		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
+		if (uiAttr.isNull())continue;
+		NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
+		if (uiItem.isNull())continue;
+
+		QRectF rectInScene = uiItem->mapToScene(uiItem->entityRect()).boundingRect();
+
+		lodMerger.addItem(rectInScene.center(), rectInScene.width()* 0.5f);
+
+		inputWordList.push_back(wordWeightMap);
+		WordMap::iterator beg = inputWordList.back().begin();
+		WordMap::iterator end = inputWordList.back().end();
+		for (WordMap::iterator pW = beg; pW != end; ++pW)
+		{
+			*pW *= (rectInScene.width() * rectInScene.height());
+		}
+
+		nodeList.push_back(node);
+		avgSize += rectInScene.width();
+
+		if (info.isTopLevel())
+		{
+			it.skipSubTree();
+		}
+	}
+	if (!inputWordList.size())
+		return;
+
+	avgSize /= inputWordList.size();
+	float maxLod = max(40 / avgSize, minLod);
+
+	printf("%d symbols to perform LOD filter\n", inputWordList.size());
+
+	float viewSize[2] = {55,30};
+	for (float lod = maxLod; lod >= minLod; lod /= 2.5f)
+	{
+		// cluster nodes
+		lodMerger.setMinMergeSize(QSizeF(viewSize[0] / lod, viewSize[1] / lod));
+		lodMerger.compute();
+
+		// collect words
+		int nCluster = lodMerger.getClusterNum();
+		if (!nCluster)
+			return;
+
+		typedef SymbolWordAttr::WordMap WordMap;
+		QVector<WordMap> clusterWordList(nCluster);
+		for (int i = 0; i < lodMerger.getInputItemNum(); ++i)
+		{
+			int clusterID = lodMerger.getClusterID(i);
+			const WordMap& wordWeightMap = inputWordList[i];
+			SymbolWordAttr::insertWords(clusterWordList[clusterID], wordWeightMap);
+		}
+
+		// compute tfidf
+		TFIDFMaker     tfidfMaker;
+		for (int i = 0; i < clusterWordList.size(); ++i)
+		{
+			WordMap::Iterator pW;
+			for (pW = clusterWordList[i].begin(); pW != clusterWordList[i].end(); ++pW)
+			{
+				tfidfMaker.addWord(i, pW.key(), pW.value());
+			}
+		}
+		tfidfMaker.computeTFIDF();
+
+		// extract words from each cluster
+		typedef LodAttr::WordCloudItem WordCloudItem;
+		WordCloudItem wcItem;
+		QList<WordCloudItem> txtItemList;
+		float minP = FLT_MAX, maxP = 0;
+		for (int ithCluster = 0; ithCluster < nCluster; ++ithCluster)
+		{
+			const QRectF& rect = lodMerger.getClusterRect(ithCluster);
+			float topLeft[2] = {rect.center().x(), rect.center().y()};
+			float dim[2]     = {rect.width()*0.5f, rect.height()*0.5f};
+
+			WordMap& wordMap = clusterWordList[ithCluster];
+
+			// find best word for each cluster
+			WordMap::Iterator pBestWord;
+			float maxPriority = -FLT_MAX;
+			for (WordMap::Iterator pW = wordMap.begin(); pW!= wordMap.end(); ++pW)
+			{
+				int wordID = pW.key();
+				float priority = tfidfMaker.getTFIDF(ithCluster, wordID);
+				if (priority > maxPriority)
+				{
+					maxPriority = priority;
+					pBestWord = pW;
+				}
+			}
+
+			if (maxPriority == -FLT_MAX)
+				continue;
+			// record that word
+			wcItem.m_clusterID = ithCluster;
+			int wordID = pBestWord.key();
+
+			float visualPriority = sqrt(rect.width() * rect.width() + rect.height() * rect.height());
+			wcItem.m_txt = SymbolWordAttr::getWord(wordID);
+			wcItem.m_priority = tfidfMaker.getTFIDF(ithCluster, wordID) * (visualPriority) ;
+			minP = min(minP, wcItem.m_priority);
+			maxP = max(maxP, wcItem.m_priority);
+
+			float frag[2] = {0.5,0.5};//{rand()/float(RAND_MAX)*2.f-1.f, rand()/float(RAND_MAX)*2.f-1.f};
+			wcItem.m_pos.rx() = topLeft[0] + frag[0] * dim[0] * 0.5f;
+			wcItem.m_pos.ry() = topLeft[1] + frag[1] * dim[1] * 0.5f;
+			txtItemList.push_back(wcItem);
+		}
+		int nTxtItem = txtItemList.size();
+
+		// compute view size
+		float minFontSize = 12, maxFontSize = 25, interval = 4;
+		QFont font("Tahoma", 7, QFont::Light);
+		for (int i = 0; i <  nTxtItem; ++i)
+		{
+			WordCloudItem &item = txtItemList[i];
+			float fOffset = (maxFontSize-minFontSize)*sqrt((item.m_priority-minP)/(maxP-minP+1e-3));
+			int   iOffset = int(fOffset / interval) * interval;
+			int fs = minFontSize + iOffset;
+			item.m_fontSize = fs;
+
+			//printf("pointsize: %d maxSize = %f min %f p%f\n", fs, maxP, minP, item.m_priority);
+			font.setPointSize(item.m_fontSize);
+			QFontMetrics fm = QFontMetrics(font);
+			item.m_viewSize = fm.size(0, item.m_txt);
+		}
+
+		lodAttr->addLodWordCloud(lod, txtItemList);
+		printf("lod = %f  words = %d\n", lod, txtItemList.size());
+
+		// prepare next input
+		QList<QRectF> clusterRectList;
+		for (int i = 0; i < nCluster; ++i)
+		{
+			clusterRectList.push_back(lodMerger.getClusterRect(i));
+		}
+		inputWordList = clusterWordList.toList();
+		lodMerger.clearAll();
+		lodMerger.addItem(clusterRectList);
+	}
+}
+
 void CodeAtlas::GeneralDependBuilder::buildDependPath()
 {
 	QList<DBDependData>		   dpData;

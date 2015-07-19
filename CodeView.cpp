@@ -74,6 +74,8 @@ void CodeAtlas::CodeView::unlockView()
 
 void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rect )
 {
+	int t0 = clock();
+
 	QSize   viewSize   = m_curSize;
 	QPointF topLeftPnt = this->mapToScene(0,0);
 	QPointF bottomRightPnt = this->mapToScene(viewSize.width(), viewSize.height());
@@ -82,7 +84,8 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 	if (!scene)
 		return;
 
-
+	BackgroundRenderer& renderer = UISetting::getBackgroundRenderer();
+	renderer.clearSeaRegion();
 	QList<QGraphicsItem*> itemList = scene->items(sceneRect, Qt::IntersectsItemBoundingRect);
 	QList<QRect> rectList;
 	QList<float> radiusList;
@@ -99,20 +102,35 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 		
 		const QList<SymbolNode::Ptr>& globalSymbols = projAttr->getGlobalSymList();
 		foreach (SymbolNode::Ptr gloSym, globalSymbols)*/
-		for (SymbolNode::Ptr classNode; classNode = *it; ++it)
-		{
-			SymbolInfo nodeInfo = classNode->getSymInfo();
-			if (!nodeInfo.isTopLevel())
-			{
-				continue;
-			}
-			UIElementAttr::Ptr uiAttr = classNode->getAttr<UIElementAttr>();
-			if (uiAttr.isNull())
-				continue;
-			NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
-			if (uiItem.isNull())
-				continue;
+	for (SymbolNode::Ptr classNode; classNode = *it; ++it)
+	{
+		SymbolInfo nodeInfo = classNode->getSymInfo();
 
+		UIElementAttr::Ptr uiAttr = classNode->getAttr<UIElementAttr>();
+		if (uiAttr.isNull())
+			continue;
+
+		NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
+		if (uiItem.isNull())
+			continue;
+
+		if (nodeInfo.elementType() & SymbolInfo::Folder)
+		{
+			FolderAttr::Ptr fAttr = classNode->getAttr<FolderAttr>();
+			QSharedPointer<QPolygonF> pHull = uiAttr->getVisualHull();
+			if (!pHull)
+				continue;
+			QPolygon poly = this->mapFromScene(uiItem->mapToScene(*pHull));
+			renderer.addSeaRegion(poly, fAttr->depth());
+			continue;
+		}
+		else if (!nodeInfo.isTopLevel())
+		{
+			it.skipSubTree();
+			continue;
+		}
+		else
+		{
 			QRectF bRect = uiItem->boundingRect();
 			QSizeF  bSize = bRect.size();
 			QPoint topLeft = mapFromScene(uiItem->mapToScene(bRect.topLeft()));
@@ -125,11 +143,12 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 			valList.push_back(1);//uiItem->getLevel());
 			clrList.push_back(UISetting::getTerritoryColor(qHash(uiItem->name())).rgb());
 		}
+
+	}
 	//}
 
 	
 	float lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(painter->worldTransform());
-	BackgroundRenderer& renderer = UISetting::getBackgroundRenderer();
 	renderer.setLod(lod);
 	renderer.setLodInterLimit(0.02,0.15);
 	renderer.setEmptyTerritory(qRgba(233,229,220,255));
@@ -150,6 +169,9 @@ void CodeAtlas::CodeView::drawBackground( QPainter * painter, const QRectF & rec
 
 	printf("view: %p\n", this);
 	computeLod();
+
+	int t1 = clock();
+	printf("CodeView::drawBackground: %f\n", (t1-t0)/float(CLOCKS_PER_SEC));
 }
 
 void CodeAtlas::CodeView::computeLod()
@@ -165,6 +187,7 @@ void CodeAtlas::CodeView::computeLod()
 
 void CodeAtlas::CodeView::drawForeground( QPainter *painter, const QRectF &rect )
 {	
+	int t0 = clock();
 	m_overlapSolver.resetViewBuf();
 	if (m_drawName)
 	{
@@ -178,6 +201,9 @@ void CodeAtlas::CodeView::drawForeground( QPainter *painter, const QRectF &rect 
 
 	// draw cursor
 	drawCursorIcon(painter);
+
+	int t1 = clock();
+	printf("CodeView::drawForeground %f\n", (t1-t0)/float(CLOCKS_PER_SEC));
 }
 
 void CodeAtlas::CodeView::drawCursorIcon(QPainter* painter)
@@ -229,8 +255,11 @@ void CodeAtlas::CodeView::paintEvent( QPaintEvent *event )
 	m_mutex.lock();
 	if (m_receiveMsg)
 	{
-		//qDebug("view paint event");
+		qDebug("\n\nview paint event begin\n");
+		int t0 = clock();
 		QGraphicsView::paintEvent(event);
+		int t1 = clock();
+		printf("view paint event end %f\n", (t1-t0)/float(CLOCKS_PER_SEC));
 	}
 	m_mutex.unlock();
 }
@@ -260,6 +289,7 @@ void CodeAtlas::CodeView::centerViewWhenNecessary()
 		return;
 	}
 }
+/*
 void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 {
 	struct WordCloudItem
@@ -285,8 +315,12 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER,SymbolInfo::ClassStruct | SymbolInfo::FunctionSignalSlot | SymbolInfo::Variable, SymbolInfo::All & ~SymbolInfo::Block );
 	for (SymbolNode::Ptr node; node = *it; ++it, ++ithNode)
 	{
-		if (!node->getSymInfo().isTopLevel())
+		SymbolInfo nodeInfo = node->getSymInfo();
+		if (!(nodeInfo.isTopLevel() || nodeInfo.elementType() & SymbolInfo::Folder) )
+		{
+			it.skipSubTree();
 			continue;
+		}
 
 		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
 		if (uiAttr.isNull())continue;
@@ -390,10 +424,67 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 		painter->drawText(item.m_rect,Qt::AlignCenter,item.m_txt);
 		//painter->drawRect(item.m_rect);
 	}
+}*/
+
+void CodeAtlas::CodeView::drawWordCloud(QPainter* painter)
+{
+	float lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(this->viewportTransform());
+	SymbolTree& tree = DBManager::instance()->getSymbolTree();
+	LodAttr::Ptr lodAttr = tree.getRoot()->getAttr<LodAttr>();
+
+	typedef LodAttr::WordCloudItem WordCloudItem;
+	LodAttr::WordCloudList* wordList = lodAttr->findWordCloudList(lod);
+	if (!wordList)
+	{
+		return;
+	}
+
+	m_overlapSolver.clearInputData();
+	int nTxtItem = wordList->size();
+	for (int i = 0; i < nTxtItem; ++i)
+	{
+		WordCloudItem &item = (*wordList)[i];
+		QPoint pnt = mapFromScene(item.m_pos);
+
+		QRect rect(0,0, item.m_viewSize.width(), item.m_viewSize.height());
+		rect.moveCenter(pnt);
+
+		const int padding = 5;
+		rect = UIUtility::expandRect(rect, padding);
+
+		m_overlapSolver.addOverlapData(OverlapData(rect, Priority(item.m_priority)));
+	}
+	//m_overlapSolver.saveAsImg("pre.png");
+	m_overlapSolver.compute();
+	//m_overlapSolver.saveAsImg("after.png");
+
+	// paint
+	QFont font("Tahoma", 7, QFont::Light);
+	painter->setPen(QPen(QColor(98,98,98,200)));//243,241,222,200)));
+	painter->setBrush(Qt::NoBrush);
+	painter->setWorldTransform(QTransform());
+	for (int i = 0; i < nTxtItem; ++i)
+	{
+		WordCloudItem &item = (*wordList)[i];
+		if(!m_overlapSolver.isShown(i))
+			continue;
+
+		font.setPointSizeF(item.m_fontSize);
+		painter->setFont(font);
+		painter->drawText(m_overlapSolver.getRect(i),Qt::AlignCenter,item.m_txt);
+	}
+
+	//painter->setPen(QPen());
+	//painter->drawRect(0,0,55,30);
+	
 }
 /*
 void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 {
+
+
+
+/*
 	// use tfidf to compute priority
 	LodMerger	   lodMerger;
 	int ithNode = 0;
@@ -402,6 +493,10 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 	SmartDepthIterator it(tree.getRoot(), SmartDepthIterator::PREORDER,SymbolInfo::Class, SymbolInfo::All & ~SymbolInfo::Block & ~SymbolInfo::Function & ~SymbolInfo::Variable);
 	for (SymbolNode::Ptr node; node = *it; ++it, ++ithNode)
 	{
+		SymbolInfo info = node->getSymInfo();
+		if (info.elementType() & SymbolInfo::Folder)
+			continue;
+
 		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
 		if (uiAttr.isNull())continue;
 		NodeUIItem::Ptr uiItem = uiAttr->getUIItem();
@@ -409,19 +504,24 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 		if (uiItem->getLodStatus() & (LOD_INVISIBLE))continue;
 		
 		QRect nodeRect = mapFromScene(uiItem->mapToScene(uiItem->entityRect())).boundingRect();
-		if (!nodeRect.intersects(this->rect()))
+		if (0 && !nodeRect.intersects(this->rect()))
 		{
 			continue;
 		}
 
 		lodMerger.addItem(nodeRect.center(), nodeRect.width()* 0.5f);
-		nodeList.push_back(node);		
+		nodeList.push_back(node);	
+
+		if (info.isTopLevel())
+		{
+			it.skipSubTree();
+		}
 	}
 	if (!nodeList.size())
 		return;
 
 	// cluster nodes
-	lodMerger.setMinMergeSize(QSizeF(200,150));
+	lodMerger.setMinMergeSize(QSizeF(55,30));
 	lodMerger.compute();
 
 	// collect words
@@ -484,7 +584,7 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 			minP = min(minP, wcItem.m_priority);
 			maxP = max(maxP, wcItem.m_priority);
 			
-			float frag[2] = {rand()/float(RAND_MAX)*2.f-1.f, rand()/float(RAND_MAX)*2.f-1.f};
+			float frag[2] = {0.5,0.5};//{rand()/float(RAND_MAX)*2.f-1.f, rand()/float(RAND_MAX)*2.f-1.f};
 			wcItem.m_pos.rx() = topLeft[0] + frag[0] * dim[0] * 0.5f;
 			wcItem.m_pos.ry() = topLeft[1] + frag[1] * dim[1] * 0.5f;
 			txtItemList.push_back(wcItem);
@@ -494,7 +594,7 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 
 	// resolve overlap
 	m_overlapSolver.clearInputData();
-	float minFontSize = 12, maxFontSize = 30, interval = 6;
+	float minFontSize = 12, maxFontSize = 25, interval = 4;
 	QFont font("Tahoma", 7, QFont::Light);
 	for (int i = 0; i <  nTxtItem; ++i)
 	{
@@ -541,6 +641,9 @@ void CodeAtlas::CodeView::drawWordCloud( QPainter *painter )
 		const QRectF& rect = lodMerger.getClusterRect(ithCluster);
 		painter->drawRect(rect);
 	}
+
+	painter->setPen(QPen());
+	painter->drawRect(0,0,55,30);
 }*/
 
 void CodeAtlas::CodeView::drawName( QPainter *painter )

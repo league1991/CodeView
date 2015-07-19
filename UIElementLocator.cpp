@@ -48,9 +48,16 @@ bool UIElementLocator::layoutTree( SymbolNode::Ptr& root )
 
 		QList<SymbolNode::Ptr> childList;
 		childList.reserve(node->childCount());
+		unsigned typeFlag = 0;
 		for (SymbolNode::ChildIterator pChild = node->childBegin();
 			pChild != node->childEnd(); ++pChild)
+		{
 			childList.append(*pChild);
+			if ((*pChild)->getSymInfo().elementType() & SymbolInfo::Folder)
+				typeFlag |= 0x2;
+			else
+				typeFlag |= 0x1;
+		}
 
 		Layouter* layouter = NULL;
 		SymbolInfo nodeInfo = node->getSymInfo();
@@ -61,6 +68,12 @@ bool UIElementLocator::layoutTree( SymbolNode::Ptr& root )
 		else
 		{
 			layouter = &compLayouter;
+			if (typeFlag == 0x2)			// only folder
+				compLayouter.setSparseFactor(1.0,1.f);
+			else if (typeFlag == 0x3)		// folder and other items
+				compLayouter.setSparseFactor(1.8,1.f);
+			else							// only other items
+				compLayouter.setSparseFactor(2.4,1.f);
 		}
 
 		layouter->setNodes(childList, node);
@@ -322,6 +335,32 @@ void UIElementLocator::modifyTree()
 		SymbolNode::Ptr& proj = pProj.value();
 		updateUIItemTree(proj, root);
 	}
+
+	// compute scene rect
+	QRectF r(0,0,0,0);
+	SmartDepthIterator it(m_tree->getRoot(), DepthIterator::PREORDER, SymbolInfo::All);
+	for (SymbolNode::Ptr node; node = *it; ++it)
+	{
+		UIElementAttr::Ptr uiAttr = node->getAttr<UIElementAttr>();
+		if (!uiAttr)
+		{
+			continue;
+		}
+
+		NodeUIItem::Ptr nodeUIItem = uiAttr->getUIItem();
+		if (!nodeUIItem)
+		{
+			continue;
+		}
+		r = r.united(nodeUIItem->mapToScene(nodeUIItem->boundingRect()).boundingRect());
+
+		SymbolInfo info = node->getSymInfo();
+		if (info.elementType() & SymbolInfo::Folder || info.isTopLevel())
+		{
+			it.skipSubTree();
+		}
+	}
+	UIManager::instance()->getScene().setSceneRect(r);
 /*
 	if (UIElementAttr::Ptr uiAttr = root->getAttr<UIElementAttr>())
 	{

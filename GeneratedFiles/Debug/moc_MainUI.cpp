@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'MainUI.h'
 **
-** Created: Fri Jul 10 16:14:29 2015
+** Created: Sat Jul 18 20:49:45 2015
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.4)
 **
 ** WARNING! All changes made in this file will be lost!

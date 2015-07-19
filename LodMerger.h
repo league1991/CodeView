@@ -10,11 +10,16 @@ namespace CodeAtlas
 
 		void				setMinMergeSize(const QSizeF& s){m_minMergeSize = s;}
 		void				addItem(const QPoint& center, float radius);
+		void				addItem(const QPointF& center, float radius );
+		void				addItem(const QRectF& rect);
+		void				addItem(const QList<QRectF>& rectList);
 
+		void				clearAll();
+		int					getInputItemNum()const{return m_itemList.size();}
 		void				compute();
+
 		int					getClusterID(int ithItem);
 		int					getClusterNum(){return m_clusterList.size();}
-
 		const QRectF&       getClusterRect(int ithCluster)const
 		{
 			return m_clusterList[ithCluster].m_rect;
@@ -25,7 +30,6 @@ namespace CodeAtlas
 		{
 			QRectF			m_rect;
 			QPointF			m_center;
-			float			m_radius;
 
 			unsigned		m_parentID;
 		};

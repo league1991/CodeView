@@ -241,10 +241,12 @@ void CodeAtlas::EdgeUIItem::drawArrow( QPainter* painter, const QColor& color)
 	QPen arrowPen(color,qMax(arrowSize * 0.3,0.6), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 	painter->setPen(arrowPen);
 
+	VectorXf range = points.colwise().maxCoeff() - points.colwise().minCoeff();
+	qreal approxRange = range.norm();
 	QPointF thisPnt, nextPnt, dir;
-	const float arrowStep = max(arrowLength * 7.f, 200.0);
+	const float arrowStep = max(arrowLength * 7.f, approxRange / 100.f);
 	float restLength = -arrowStep * 0.5;
-	int ithPnt = 0;;
+	int ithPnt = 0;
 
 	while(1)
 	{

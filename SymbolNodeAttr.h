@@ -36,7 +36,9 @@ namespace CodeAtlas
 	// FuzzyDependAttr  GeneralDependBuilder
 	// UIElementAttr	UIElementLocator
 	// GlobalSymAttr    GeneralDependBuilder
-	// DependRawData    GeneralDependBuilder
+	// DependRawDataAttr GeneralDependBuilder
+	// FolderAttr		SymbolTreeBuilder
+	// LodAttr			TopicLODMaker
 	class SymbolNodeAttr
 	{
 	public:
@@ -52,6 +54,8 @@ namespace CodeAtlas
 			ATTR_UIELEMENT  = (0x1) << 6,
 			ATTR_GLOBAL_SYM = (0x1) << 7,
 			ATTR_DEPEND_RAW = (0x1) << 8,
+			ATTR_FOLDER     = (0x1) << 9,
+			ATTR_LOD        = (0x1) << 10,
 
 			ATTR_NONE		= 0,
 			ATTR_ALL		= 0xffffffff
@@ -325,7 +329,7 @@ namespace CodeAtlas
 		Eigen::VectorXi				 m_childLevel;
 		DependPairList				 m_childDependPair;
 	};
-	
+	// 
 	class DependRawDataAttr:public SymbolNodeAttr
 	{
 	public:
@@ -393,5 +397,51 @@ namespace CodeAtlas
 		QSharedPointer<QPolygonF>		m_localHull;
 
 		int								m_clusterID;
+	};
+
+	class FolderAttr:public SymbolNodeAttr
+	{
+	public:
+		typedef QSharedPointer<FolderAttr> Ptr;
+		FolderAttr():SymbolNodeAttr(ATTR_FOLDER),m_visualDepth(0){}
+		inline static AttrType classType(){return ATTR_FOLDER;}
+		SymbolNodeAttr&     copy(const SymbolNodeAttr& s);
+		int& depth(){return m_visualDepth;}
+	private:
+		SymbolNodeAttr::Ptr creator()const{return Ptr(new FolderAttr);}
+		int m_visualDepth;
+	};
+
+	class LodAttr:public SymbolNodeAttr
+	{
+	public:
+		struct WordCloudItem
+		{
+			QString  m_txt;
+			QPointF	 m_pos;
+			QSize    m_viewSize;
+			int		 m_fontSize;
+			float    m_priority;
+			int		 m_clusterID;
+		};
+		typedef QList<WordCloudItem> WordCloudList;
+		typedef QSharedPointer<LodAttr> Ptr;
+
+		LodAttr():SymbolNodeAttr(ATTR_LOD){}
+		inline static AttrType classType(){return ATTR_LOD;}
+		SymbolNodeAttr& copy( const SymbolNodeAttr& s )
+		{
+			if (LodAttr* pS = castTo<LodAttr>(s))
+			{
+				m_lodWordCloudMap = pS->m_lodWordCloudMap;
+			}
+			return *this;
+		}
+
+		void  addLodWordCloud(float lod, const WordCloudList& wcList){m_lodWordCloudMap[lod] = wcList;}
+		WordCloudList*  findWordCloudList(float lod);
+	private:
+		SymbolNodeAttr::Ptr creator()const{return Ptr(new LodAttr);}
+		QMap<float, WordCloudList> m_lodWordCloudMap;
 	};
 }

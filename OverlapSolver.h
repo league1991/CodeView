@@ -48,6 +48,7 @@ namespace CodeAtlas
 		void addOverlapData(const OverlapData& data);
 		const QList<OverlapData>& getOverlapData();
 		bool isShown(int ithItem)const;
+		const QRect& getRect(int ithItem)const{return m_overlapData[ithItem].m_rect;}
 		void compute();
 
 		void saveAsImg(char* fileName);

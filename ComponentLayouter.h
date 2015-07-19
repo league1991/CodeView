@@ -9,12 +9,13 @@ namespace CodeAtlas
 class ComponentLayouter:public Layouter
 {
 public:
-	ComponentLayouter():m_graphSparseFactor(1.2f), m_wordSparseFactor(0.8f){}
+	ComponentLayouter():m_graphSparseFactor(2.4f), m_wordSparseFactor(0.8f){}//2.4f
 	void			setNodes(const QList<SymbolNode::Ptr>& nodeList, const SymbolNode::Ptr& parent = SymbolNode::Ptr());
 
 	// compute and set children's 2D position
 	bool			compute();
 
+	void			setSparseFactor(float graphFactor, float wordFactor){m_graphSparseFactor = graphFactor; m_wordSparseFactor = wordFactor;}
 private:
 	// struct used to store connected component information
 	struct Component

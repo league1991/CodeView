@@ -64,17 +64,21 @@ QStringList WordExtractor::normalizeWords( const QString& str )
 		{
 			const QChar* c = pStr + end;
 
-			if (isUpperSeq && end != strLength-1)
+			if (isUpperSeq)
 			{
+				// find non-upper case letter
 				if (!(*c >= A && *c <= Z))
 				{
-					//if (end > beg+1)
+					// c is lower case letter
+					if (*c >= a && *c <= z)
 						end--;
+					// c is '_' or numbers
 					break;		
 				}
 			}
 			else
 			{
+				// camel naming, if c is not lower case, break the word
 				if (!(*c >= a && *c <= z))
 					break;
 			}

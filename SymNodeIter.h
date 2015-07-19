@@ -6,7 +6,7 @@ namespace CodeAtlas
 	{
 	public:
 		enum TraversalOrder{PREORDER, POSTORDER};
-		DepthIterator(TraversalOrder order = PREORDER):m_traversalOrder(order){}
+		DepthIterator(TraversalOrder order = PREORDER):m_traversalOrder(order),m_ignoreSubtree(false){}
 		DepthIterator(const SymbolNode::Ptr& pRoot, TraversalOrder order = PREORDER);
 
 		void                setTraversalOrder(TraversalOrder order);
@@ -19,9 +19,13 @@ namespace CodeAtlas
 		inline int          currentTreeLevel()const{return m_stack.size();}	// root node's level is 1
 
 		bool				isCurNodeLeaf()const;
+		void				skipSubTree();
+
 	protected:
 		virtual bool isLeaf(const SymbolNode::Ptr& ptr)const
-		{return ptr->childCount() == 0;}
+		{
+			return ptr->childCount() == 0;
+		}
 		virtual void advanceChildIter(const SymbolNode::Ptr& node, SymbolNode::ChildIterator& iter)	
 		{iter++;}
 		virtual SymbolNode::ChildIterator firstChildIter(const SymbolNode::Ptr& ptr)
@@ -41,6 +45,8 @@ namespace CodeAtlas
 		};
 		QList<StackEntry>	m_stack;
 		TraversalOrder		m_traversalOrder;
+
+		bool				m_ignoreSubtree;
 	};
 
 	class SmartDepthIterator: public DepthIterator

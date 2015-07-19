@@ -92,8 +92,7 @@ namespace CodeAtlas
 			MatrixXf& finalPos2D,
 			float&    finalRadius,
 			float     sparseFactor = 1.f,
-			float  paddingRatio = 0.1f,
-			float  minPadding  = LayoutSetting::s_baseRadius * 10);
+			float  paddingRatio = 0.01f);
 
 		static void			laplacianEigMap(
 			const MatrixXd& laplacian,
@@ -112,8 +111,8 @@ namespace CodeAtlas
 							float&    finalRadius,
 							float     sparseFactor = 1.f);
 		bool    computeEdgeRoute(DelaunayCore::DelaunayRouter router);
-		bool	computeVisualHull(float padding);
 
+		bool	computeVisualHull();
 		static QPainterPath    mat2Path(const MatrixXf& pntMat);
 		static QPolygonF		getRect(const QPointF& center, float radius);
 

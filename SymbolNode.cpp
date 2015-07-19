@@ -998,7 +998,17 @@ const SymbolPath SymbolNode::getSymPath() const
 	}
 	return path;
 }
-
+const int SymbolNode::getSymPathLength() const
+{
+	SymbolPath path;
+	int l = 0;
+	for (WeakPtr wpParent = m_parent; !wpParent.isNull(); l++)
+	{
+		Ptr pParent = wpParent.toStrongRef();
+		wpParent = pParent->m_parent;
+	}
+	return l;
+}
 void SymbolNode::findChild( unsigned childTypeMask, QList<Ptr>& childList ) const
 {
 	childList.clear();

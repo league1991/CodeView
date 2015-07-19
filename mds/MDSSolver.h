@@ -119,9 +119,9 @@ class MDSPostProcesser
 {
 public:
 	MDSPostProcesser(int maxIter = 10, 
-		double sparseFactor = 6.f,
+		double sparseFactor = 2.f,
 		double sizeFactor = 1.f,
-		double paddingRatio = 1.0,
+		double paddingRatio = 0.01,
 		double minPadding = 10):m_maxIter(maxIter), m_sparseFactor(sparseFactor), m_sizeFactor(sizeFactor), m_nData(0),m_radiusPaddingRatio(paddingRatio), m_minPadding(minPadding){}
 
 	// set initial 2d data points

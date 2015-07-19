@@ -33,7 +33,7 @@ SymbolNode::Ptr DepthIterator::operator++()
 	if (m_traversalOrder == PREORDER)
 	{
 		// preorder traversal
-		if (!isLeaf(m_stack.back().nodePtr()))
+		if (!isLeaf(m_stack.back().nodePtr()) && !m_ignoreSubtree)
 		{
 			// has child, so go to the first child
 			SymbolNode::Ptr pChild = m_stack.back().childIter().value();
@@ -41,6 +41,8 @@ SymbolNode::Ptr DepthIterator::operator++()
 		}
 		else
 		{
+			m_ignoreSubtree = false;
+
 			// reach leaf node
 			// 1. find "youngest" parent that has some children remain not traversed
 			// 2. go to one of those children
@@ -86,7 +88,7 @@ SymbolNode::Ptr DepthIterator::operator++()
 }
 
 
-DepthIterator::DepthIterator( const SymbolNode::Ptr& pRoot, TraversalOrder order /*= PREORDER*/ ) :m_traversalOrder(order)
+DepthIterator::DepthIterator( const SymbolNode::Ptr& pRoot, TraversalOrder order /*= PREORDER*/ ) :m_traversalOrder(order), m_ignoreSubtree(false)
 {
 	setRoot(pRoot);
 }
@@ -196,4 +198,16 @@ bool CodeAtlas::DepthIterator::isCurNodeLeaf() const
 	if (m_stack.size() == 0)
 		return false;
 	return isLeaf(m_stack.back().nodePtr());
+}
+
+void CodeAtlas::DepthIterator::skipSubTree()
+{
+	if (m_traversalOrder == PREORDER)
+	{
+		m_ignoreSubtree = true;
+	}
+	else
+	{
+		qErrnoWarning("this function should only be called in PREORDER mode.");
+	}
 }

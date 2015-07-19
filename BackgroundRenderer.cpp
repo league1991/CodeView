@@ -2,6 +2,10 @@
 #include "backgroundRenderer.h"
 
 using namespace CodeAtlas;
+
+
+QList<QColor> CodeAtlas::BackgroundRenderer::m_seaLevelColor;
+
 BackgroundRenderer::BackgroundRenderer(void):
 m_width(0), m_height(0), 
 m_bufWidth(0), m_bufHeight(0),
@@ -27,6 +31,10 @@ m_maxLod(0.5)
 	m_emptyTerritory = qRgba(255,255,255,255);
 	setHeightMap(UISetting::getAltitudeMap());
 	m_plainClr = qRgb(240,237,229);
+	if (!m_seaLevelColor.size())
+	{
+		initSeaLevelColor();
+	}
 }
 
 BackgroundRenderer::~BackgroundRenderer(void)
@@ -322,6 +330,7 @@ void BackgroundRenderer::setRenderSize( int w, int h, float bufRatio /*= 0.25*/ 
 
 void BackgroundRenderer::computeFinalMap()
 {
+	computeSeaRegion(m_finalImg);
 	QRgb* finalBuf = (QRgb*)m_finalImg.bits();
 
 	int finalW = m_width, finalH = m_height;
@@ -381,7 +390,7 @@ void BackgroundRenderer::computeFinalMap()
 
 			if (v < m_seaLevel)
 			{
-				*pFinal = color;
+				//*pFinal = color;
 				continue;
 			}
 
@@ -439,6 +448,7 @@ void BackgroundRenderer::computeFinalMap()
 
 void BackgroundRenderer::clear()
 {
+	clearSeaRegion();
 	clearInternalBuffer();
 	m_finalImg = QImage();
 	m_width = m_height = 0;
@@ -530,5 +540,50 @@ void CodeAtlas::BackgroundRenderer::computeTerritoryAlpha()
 			b *= factor;		a *= factor;
 			*pElem = qRgba(r,g,b,a);
 		}
+	}
+}
+
+void CodeAtlas::BackgroundRenderer::addSeaRegion( const QPolygon& poly, int depth )
+{
+	m_regionList.append(SeaRegion(poly, depth));
+}
+
+void CodeAtlas::BackgroundRenderer::initSeaLevelColor()
+{
+	m_seaLevelColor.clear();
+	m_seaLevelColor 
+		<< QColor(203,218,243)
+		<< QColor(172,198,240)
+		<< QColor(138,174,234)
+		<< QColor(102,149,227)
+		<< QColor(73, 128,221)
+		<< QColor(65, 97, 182)
+		<< QColor(69, 91, 152)
+		<< QColor(61, 81, 133)
+		<< QColor(48, 66, 103);
+}
+
+QColor& CodeAtlas::BackgroundRenderer::getSeaLevelColor( int level )
+{
+	return m_seaLevelColor[max(0,min(level, m_seaLevelColor.size()-1))];
+}
+
+void CodeAtlas::BackgroundRenderer::computeSeaRegion( QImage&img )
+{
+
+	qSort(m_regionList.begin(), m_regionList.end());
+
+	int maxLevel = m_regionList.back().m_level;
+	img.fill(getSeaLevelColor(maxLevel+1));
+
+	QPainter painter(&img);
+	painter.setPen(Qt::NoPen);
+
+	for (int i = m_regionList.size()-1; i >= 0; i--)
+	{
+		SeaRegion& reg = m_regionList[i];
+		int level = max(reg.m_level -1,0);
+		painter.setBrush(QBrush(getSeaLevelColor(level)));
+		painter.drawPolygon(reg.m_polys);
 	}
 }

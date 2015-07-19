@@ -49,6 +49,23 @@ bool CodeAtlas::SymbolTreeBuilder::buildTree()
 	mergeNode(root, leafSet);
 	root->printTree(0);
 
+	// compute depth for folder component
+	int maxDepth = 0;
+	SmartDepthIterator it(root, SmartDepthIterator::PREORDER);
+	for (SymbolNode::Ptr node; node = *it; ++it)
+	{
+		int depth = node->getSymPathLength();
+		maxDepth = max(maxDepth, depth);
+	}
+	it = SmartDepthIterator(root, SmartDepthIterator::PREORDER);
+	for (SymbolNode::Ptr node; node = *it; ++it)
+	{
+		int depth = node->getSymPathLength();
+
+		FolderAttr::Ptr parentFolderAttr = node->getOrAddAttr<FolderAttr>();
+		parentFolderAttr->depth() = maxDepth + 1 - depth;
+	}
+
 	for (int i = 0; i < globalHandle.size(); ++i)
 	{
 		SymbolNode::Ptr& curNode = globalNodes[i];
@@ -185,24 +202,36 @@ void CodeAtlas::SymbolTreeBuilder::findFolderPath( const QList<QString>&fileList
 }
 void CodeAtlas::SymbolTreeBuilder::mergeNode( SymbolNode::Ptr& parent, const QSet<SymbolNode::Ptr>& leafSet)
 {
-	if (parent->childCount() == 1)
+	typedef QHash<SymbolInfo, SymbolNode::Ptr> ChildList;
+
+	// copy childlist
+	ChildList childList;
+	for (SymbolNode::ChildIterator pChild = parent->childBegin(); pChild != parent->childEnd(); ++pChild)
 	{
-		SymbolNode::Ptr child = parent->childBegin().value();
+		childList[pChild.key()] = pChild.value();
+	}
 
-		// ignore leaf
-		if (child->childCount() != 0 && !leafSet.contains(child))
+	// merge child
+	for (ChildList::iterator pC = childList.begin(); pC != childList.end(); ++pC)
+	{
+		SymbolNode::Ptr child = *pC;
+		SymbolInfo childInfo  = pC.key();
+
+		while (child->childCount() == 1 && !leafSet.contains(child))
 		{
-			// merge child and descendents
-			SymbolInfo   childInfo = parent->childBegin().key();
-			parent->removeChild(childInfo);
+			SymbolNode::Ptr desc = child->childBegin().value();
+			SymbolInfo descInfo = child->childBegin().key();
+			childInfo = combineFolderInfo(childInfo, descInfo);
+			child = desc;
+		}
 
-			for (SymbolNode::ChildIterator pDesc = child->childBegin(); pDesc != child->childEnd(); ++pDesc)
-			{
-				SymbolInfo newInfo   = combineFolderInfo(childInfo, pDesc.key());
-				SymbolNode::addOrReplaceChild(parent, newInfo, pDesc.value());
-			}
+		if (child != *pC)
+		{
+			parent->removeChild(pC.key());
+			SymbolNode::addOrReplaceChild(parent, childInfo, child);
 		}
 	}
+
 	for (SymbolNode::ChildIterator pChild = parent->childBegin(); pChild != parent->childEnd(); ++pChild)
 	{
 		mergeNode(pChild.value(), leafSet);

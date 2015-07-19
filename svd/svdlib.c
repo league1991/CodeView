@@ -35,7 +35,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdutil.h"
 
 char *SVDVersion = "1.4";
-long SVDVerbosity = 1;
+long SVDVerbosity = 0;
 long SVDCount[SVD_COUNTERS];
 
 void svdResetCounters(void) {

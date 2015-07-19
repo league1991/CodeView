@@ -122,4 +122,13 @@ namespace CodeAtlas
 	private:
 		void randomModularize();
 	};
+
+	class TopicLODMaker:public SymbolModifier
+	{
+	public:
+		void			clearCache(){}
+		void			modifyTree();
+		void			updateDirtyData(){}
+	private:
+	};
 }

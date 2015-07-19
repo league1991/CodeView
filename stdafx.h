@@ -106,6 +106,7 @@
 #include "CursorUIItem.h"
 #include "ProjectUIItem.h"
 #include "ClassUIItem.h"
+#include "FolderUIItem.h"
 #include "VariableUIItem.h"
 #include "FunctionUIItem.h"
 #include "MathUtility.h"

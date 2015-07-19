@@ -26,10 +26,11 @@ bool CodeAtlas::DBManager::parse()
 	builder.addModifier(SymbolModifier::Ptr(new GeneralDependBuilder));
 	//builder.addModifier(SymbolModifier::Ptr(new Modulizer));
 	builder.addModifier(SymbolModifier::Ptr(new UIElementLocator));
+	builder.addModifier(SymbolModifier::Ptr(new TopicLODMaker));
 
 	builder.buildTree();
 	builder.applyModifiers();
-	builder.getTree().print();
+	//builder.getTree().print();
 	return true;
 }
 

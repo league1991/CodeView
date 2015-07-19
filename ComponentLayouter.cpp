@@ -23,12 +23,12 @@ void ComponentLayouter::layoutByGraph( QVector<Component>& compInfo )
 		VectorXf rVec = comp.m_vtxRadius.head(nCompVtx);
 
 #ifdef OGDF_GRAPH_LAYOUT
-		if(!graphLayout(*comp.m_pVEIncidenceMat, rVec, comp.m_localPos2D, comp.m_radius, 2.4))
+		if(!graphLayout(*comp.m_pVEIncidenceMat, rVec, comp.m_localPos2D, comp.m_radius, m_graphSparseFactor))
 		{
 			MatrixXf distMat;
 			VectorXf edgeLength = VectorXf::Ones(nCompEdge);
 			GraphUtility::computePairDist(*comp.m_pVEIncidenceMat, distMat, &edgeLength);
-			mds(distMat.cast<double>(), rVec, comp.m_hashID, comp.m_localPos2D, comp.m_radius, m_graphSparseFactor, 0.02f, rVec.minCoeff());
+			mds(distMat.cast<double>(), rVec, comp.m_hashID, comp.m_localPos2D, comp.m_radius, m_graphSparseFactor, 0.01f);
 		}
 #else
  		MatrixXf distMat;
@@ -81,7 +81,7 @@ void ComponentLayouter::layoutByWord( QVector<Component>& compInfo, float& final
 	}
 
 	MatrixXf finalPos2D;
-	Layouter::mds(distMat, rVec, hashVec, finalPos2D, finalRadius, m_wordSparseFactor, 0.01f, 0);
+	Layouter::mds(distMat, rVec, hashVec, finalPos2D, finalRadius, m_wordSparseFactor, 0.01f);
 
 	for (int ithComp = 0; ithComp < nComp; ++ithComp)
 		compInfo[ithComp].m_compPos2D = finalPos2D.row(ithComp);
@@ -391,7 +391,7 @@ bool CodeAtlas::ComponentLayouter::compute()
 #endif
 
 	if ((m_status & WARNING_TRIVAL_LAYOUT) == 0)
-		computeVisualHull(m_totalRadius * 0.05);
+		computeVisualHull();
 
 	return true;
 }
